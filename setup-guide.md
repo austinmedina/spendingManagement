@@ -1,12 +1,44 @@
-# Receipt Tracker - Raspberry Pi Web Application
+## Usage Workflow
 
-A Flask-based expense tracking app with receipt scanning, budgets, and recurring transactions.
+### For Regular Users
+
+1. **Login** → Use your credentials
+2. **Dashboard** → View your spending and group expenses
+3. **Upload Receipt** → Scan receipt, assign to group if shared
+4. **Set Budgets** → Create monthly spending limits
+5. **Manage Accounts** → Add your bank accounts/cards
+6. **Join Groups** → Ask admin to add you to expense groups
+
+### For Administrators
+
+1. **Login as Admin** → Use admin credentials
+2. **Admin Panel** → Click Settings → Admin Panel
+3. **Create Users** → Add new user accounts
+4. **Manage Groups** → View and organize all groups
+5. **Reset Passwords** → Help users regain access
+6. **Deactivate Users** → Disable accounts as needed# Receipt Tracker - Raspberry Pi Web Application
+
+A Flask-based expense tracking app with receipt scanning, budgets, recurring transactions, and multi-user authentication.
+
+## Key Features
+
+- 🔐 **User Authentication** - Secure login system with admin and regular user roles
+- 📸 **Receipt Scanning** - Azure AI automatically extracts items from receipt images
+- 👥 **Multi-User Support** - Each user has their own dashboard and data
+- 👨‍👩‍👧 **Expense Groups** - Create groups for shared expenses (household, roommates)
+- 💰 **Split Transactions** - Automatically split costs among group members
+- 💳 **Account Management** - Track multiple bank accounts and payment methods
+- 📊 **Budget Tracking** - Set limits per category with progress monitoring
+- 🔄 **Recurring Transactions** - Auto-generate regular expenses/income
+- 🔍 **Advanced Search** - Filter and export transaction history
+- 👑 **Admin Panel** - Manage users and groups system-wide
 
 ## Project Structure
 
 ```
 receipt-tracker/
 ├── app.py                 # Main Flask application
+├── auth.py                # Authentication module
 ├── database.py            # PostgreSQL module (production)
 ├── requirements.txt       # Python dependencies
 ├── .env                   # Environment config
@@ -16,10 +48,12 @@ receipt-tracker/
 ├── accounts.csv           # Bank accounts (CSV mode)
 ├── groups.csv             # Expense sharing groups (CSV mode)
 ├── splits.csv             # Transaction splits (CSV mode)
+├── users.csv              # User accounts (CSV mode)
 ├── uploads/               # Temp upload folder
 ├── receipts/              # Stored receipt images
 └── templates/
     ├── base.html          # Base template
+    ├── login.html         # Login page
     ├── dashboard.html     # Main dashboard
     ├── upload.html        # Receipt upload
     ├── search.html        # Transaction search
@@ -27,7 +61,8 @@ receipt-tracker/
     ├── budgets.html       # Budget management
     ├── recurring.html     # Recurring transactions
     ├── accounts.html      # Account management
-    └── groups.html        # Group management
+    ├── groups.html        # Group management
+    └── admin.html         # Admin dashboard
 ```
 
 ## Features
@@ -54,6 +89,8 @@ receipt-tracker/
 
 ## Quick Start
 
+### First Time Setup
+
 ```bash
 # 1. Create virtual environment
 python3 -m venv venv
@@ -70,7 +107,31 @@ cp .env.example .env
 python app.py
 ```
 
-Access at: `http://localhost:5000`
+### Login
+
+1. Navigate to `http://localhost:5000`
+2. Use default credentials:
+   - **Admin**: username: `admin`, password: `admin123`
+   - **User 1**: username: `john`, password: `password`
+   - **User 2**: username: `jane`, password: `password`
+
+3. **IMPORTANT**: Change the admin password after first login!
+
+### User Types
+
+**Regular Users:**
+- View their own transactions
+- See transactions from groups they're in
+- Create budgets, accounts, and recurring transactions
+- Cannot see other users' personal data
+
+**Administrators:**
+- All regular user permissions
+- Create new users
+- Reset passwords
+- Activate/deactivate accounts
+- Manage all groups system-wide
+- Access admin dashboard at `/admin`
 
 ## Azure Document Intelligence Setup
 

@@ -1,7 +1,7 @@
 """
 Receipt Tracker Web Application
 Flask backend with Azure Document Intelligence integration
-Multi-user support with groups and split transactions
+Multi-user support with authentication, groups and split transactions
 """
 
 import os
@@ -10,11 +10,15 @@ import json
 import uuid
 import shutil
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, jsonify, send_from_directory, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, send_from_directory, session, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 import requests
 from dotenv import load_dotenv
-from functools import wraps
+from auth import (
+    init_users, login_required, admin_required, get_current_user, 
+    verify_password, create_user, update_user, delete_user, 
+    read_users, get_user_by_username, is_admin
+)
 
 load_dotenv()
 
@@ -129,6 +133,12 @@ def init_csv():
             writer.writeheader()
 
 init_csv()
+init_users()
+
+# Context processor to make current_user available in all templates
+@app.context_processor
+def inject_user():
+    return dict(current_user=get_current_user(), is_admin=is_admin())
 
 # Helper functions
 def allowed_file(filename):
@@ -172,10 +182,20 @@ def rewrite_csv(table, rows):
             writer.writerow(row)
 
 def get_current_person():
-    return session.get('current_person', 'John')
+    """Get current logged in user's full name"""
+    user = get_current_user()
+    return user['full_name'] if user else 'Guest'
+
+def get_current_username():
+    """Get current logged in user's username"""
+    user = get_current_user()
+    return user['username'] if user else None
 
 def get_person_groups(person):
     groups = read_csv('groups')
+    print(person)
+    if person == 'Administrator':
+        return groups
     return [g for g in groups if person in g['members'].split(',')]
 
 def get_group_members(group_id):
@@ -336,7 +356,31 @@ def parse_azure_response(result):
 
 
 # Routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if verify_password(username, password):
+            user = get_user_by_username(username)
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            flash(f'Welcome back, {user["full_name"]}!', 'success')
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Invalid username or password.', 'danger')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def dashboard():
     process_recurring_transactions()
     person = get_current_person()
@@ -344,22 +388,25 @@ def dashboard():
     all_people = set()
     for g in groups:
         all_people.update(g['members'].split(','))
-    return render_template('dashboard.html', categories=CATEGORIES, current_person=person, people=sorted(all_people))
+    return render_template('dashboard.html', categories=CATEGORIES, current_person=person, people=sorted(all_people), current_user=get_current_user())
 
 @app.route('/upload')
+@login_required
 def upload_page():
     person = get_current_person()
     groups = get_person_groups(person)
     accounts = filter_by_person_access(read_csv('accounts'))
-    return render_template('upload.html', categories=CATEGORIES, groups=groups, accounts=accounts, current_person=person)
+    return render_template('upload.html', categories=CATEGORIES, groups=groups, accounts=accounts, current_person=person, current_user=get_current_user())
 
 @app.route('/search')
+@login_required
 def search_page():
     person = get_current_person()
     groups = get_person_groups(person)
     return render_template('search.html', categories=CATEGORIES, groups=groups, current_person=person)
 
 @app.route('/manual')
+@login_required
 def manual_page():
     person = get_current_person()
     groups = get_person_groups(person)
@@ -367,11 +414,13 @@ def manual_page():
     return render_template('manual.html', categories=CATEGORIES, income_categories=INCOME_CATEGORIES, groups=groups, accounts=accounts, current_person=person)
 
 @app.route('/budgets')
+@login_required
 def budgets_page():
     person = get_current_person()
     return render_template('budgets.html', categories=CATEGORIES, current_person=person)
 
 @app.route('/recurring')
+@login_required
 def recurring_page():
     person = get_current_person()
     groups = get_person_groups(person)
@@ -379,14 +428,21 @@ def recurring_page():
     return render_template('recurring.html', categories=CATEGORIES, income_categories=INCOME_CATEGORIES, groups=groups, accounts=accounts, current_person=person)
 
 @app.route('/accounts')
+@login_required
 def accounts_page():
     person = get_current_person()
     return render_template('accounts.html', current_person=person)
 
 @app.route('/groups')
+@login_required
 def groups_page():
     person = get_current_person()
     return render_template('groups.html', current_person=person)
+
+@app.route('/admin')
+@admin_required
+def admin_page():
+    return render_template('admin.html', current_user=get_current_user())
 
 @app.route('/switch-person/<person>')
 def switch_person(person):
@@ -782,6 +838,66 @@ def delete_group(gid):
 def get_splits(tid):
     splits = [s for s in read_csv('splits') if s['transaction_id'] == str(tid)]
     return jsonify(splits)
+
+# Admin API Routes
+@app.route('/api/admin/users', methods=['GET'])
+@admin_required
+def get_all_users():
+    users = read_users()
+    # Remove password hashes before sending
+    for user in users:
+        user.pop('password_hash', None)
+    return jsonify(users)
+
+@app.route('/api/admin/users', methods=['POST'])
+@admin_required
+def create_new_user():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    full_name = data.get('full_name')
+    is_admin_user = data.get('is_admin', False)
+    
+    if not username or not password or not full_name:
+        return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+    
+    user = create_user(username, password, full_name, is_admin_user)
+    if not user:
+        return jsonify({'success': False, 'error': 'Username already exists'}), 400
+    
+    user.pop('password_hash', None)
+    return jsonify({'success': True, 'user': user})
+
+@app.route('/api/admin/users/<int:uid>', methods=['PUT'])
+@admin_required
+def update_user_admin(uid):
+    data = request.json
+    update_user(uid, data)
+    return jsonify({'success': True})
+
+@app.route('/api/admin/users/<int:uid>', methods=['DELETE'])
+@admin_required
+def deactivate_user(uid):
+    # Don't allow deleting yourself
+    if int(uid) == int(session['user_id']):
+        return jsonify({'success': False, 'error': 'Cannot delete your own account'}), 400
+    delete_user(uid)
+    return jsonify({'success': True})
+
+@app.route('/api/admin/groups/assign', methods=['POST'])
+@admin_required
+def admin_assign_group():
+    """Admin endpoint to assign users to groups"""
+    data = request.json
+    group_id = data.get('group_id')
+    members = data.get('members', [])
+    
+    groups = read_csv('groups')
+    for g in groups:
+        if g['id'] == str(group_id):
+            g['members'] = ','.join(members)
+    rewrite_csv('groups', groups)
+    return jsonify({'success': True})
 
 
 if __name__ == '__main__':
