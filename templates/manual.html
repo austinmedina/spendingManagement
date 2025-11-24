@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Manual Entry - Receipt Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12"><h2 class="mb-0">Manual Entry</h2><p class="text-muted">Add purchases or income without a receipt</p></div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#expenseTab"><i class="bi bi-arrow-up-circle text-danger me-1"></i>Expense</button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#incomeTab"><i class="bi bi-arrow-down-circle text-success me-1"></i>Income</button></li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="expenseTab">
+                        <form id="expenseForm">
+                            <input type="hidden" name="type" value="expense">
+                            <div class="mb-3">
+                                <label class="form-label">Item/Description <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="item_name" required placeholder="What did you buy?">
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">Amount <span class="text-danger">*</span></label>
+                                    <div class="input-group"><span class="input-group-text">$</span><input type="number" class="form-control" name="price" required step="0.01" min="0" placeholder="0.00"></div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Date <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" name="date" required>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">Category</label>
+                                    <select class="form-select" name="category">
+                                        {% for cat in categories %}<option value="{{ cat }}" {% if cat == 'Other' %}selected{% endif %}>{{ cat }}</option>{% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Store/Vendor</label>
+                                    <input type="text" class="form-control" name="store" placeholder="Where purchased">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">Person</label>
+                                    <input type="text" class="form-control" name="person" placeholder="Who made purchase">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Account</label>
+                                    <input type="text" class="form-control" name="bank_account" placeholder="Payment method">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-danger w-100"><i class="bi bi-plus-lg me-2"></i>Add Expense</button>
+                        </form>
+                    </div>
+                    
+                    <div class="tab-pane fade" id="incomeTab">
+                        <form id="incomeForm">
+                            <input type="hidden" name="type" value="income">
+                            <div class="mb-3">
+                                <label class="form-label">Source/Description <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="item_name" required placeholder="Salary, freelance, etc.">
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">Amount <span class="text-danger">*</span></label>
+                                    <div class="input-group"><span class="input-group-text">$</span><input type="number" class="form-control" name="price" required step="0.01" min="0" placeholder="0.00"></div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Date <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" name="date" required>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">Category</label>
+                                    <select class="form-select" name="category">
+                                        {% for cat in income_categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Source</label>
+                                    <input type="text" class="form-control" name="store" placeholder="Employer, client, etc.">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">Person</label>
+                                    <input type="text" class="form-control" name="person" placeholder="Who received">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Account</label>
+                                    <input type="text" class="form-control" name="bank_account" placeholder="Deposited to">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100"><i class="bi bi-plus-lg me-2"></i>Add Income</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="alert alert-success mt-3 d-none" id="successAlert"><i class="bi bi-check-circle me-2"></i><span id="successMessage"></span></div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-clock-history me-2"></i>Recent Entries</div>
+            <div class="card-body p-0" style="max-height:500px;overflow-y:auto;">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-light sticky-top"><tr><th>Date</th><th>Description</th><th>Category</th><th class="text-end">Amount</th></tr></thead>
+                    <tbody id="recentEntries"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('input[type="date"]').forEach(el => el.value = new Date().toISOString().split('T')[0]);
+
+async function loadRecent() {
+    const transactions = await fetch('/api/transactions').then(r => r.json());
+    const sorted = transactions.sort((a,b) => b.date.localeCompare(a.date)).slice(0, 15);
+    document.getElementById('recentEntries').innerHTML = sorted.map(t => `
+        <tr>
+            <td class="text-muted">${t.date}</td>
+            <td><strong>${t.item_name}</strong><br><small class="text-muted">${t.store || '-'}</small></td>
+            <td><span class="badge bg-secondary badge-category">${t.category}</span></td>
+            <td class="text-end ${t.type==='income'?'text-success':'text-danger'}">${t.type==='income'?'+':'-'}${formatCurrency(t.price)}</td>
+        </tr>
+    `).join('');
+}
+
+async function submitEntry(form) {
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    data.price = parseFloat(data.price) || 0;
+    
+    try {
+        const res = await fetch('/api/manual-entry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        const result = await res.json();
+        if (result.success) {
+            document.getElementById('successMessage').textContent = `Added ${data.type}: ${data.item_name} - ${formatCurrency(data.price)}`;
+            document.getElementById('successAlert').classList.remove('d-none');
+            setTimeout(() => document.getElementById('successAlert').classList.add('d-none'), 3000);
+            form.reset();
+            form.querySelector('input[type="date"]').value = new Date().toISOString().split('T')[0];
+            loadRecent();
+        }
+    } catch (e) { alert('Error: ' + e.message); }
+}
+
+document.getElementById('expenseForm').addEventListener('submit', e => { e.preventDefault(); submitEntry(e.target); });
+document.getElementById('incomeForm').addEventListener('submit', e => { e.preventDefault(); submitEntry(e.target); });
+loadRecent();
+</script>
+{% endblock %}

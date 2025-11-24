@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Receipt Tracker{% endblock %}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        :root { --primary: #4361ee; --secondary: #3f37c9; --success: #4cc9f0; --danger: #f72585; --warning: #fca311; }
+        body { background: #f8f9fa; }
+        .navbar { background: linear-gradient(135deg, var(--primary), var(--secondary)); }
+        .navbar-brand, .nav-link { color: white !important; }
+        .nav-link:hover { color: rgba(255,255,255,0.8) !important; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+        .card-header { background: transparent; border-bottom: 1px solid #eee; font-weight: 600; }
+        .stat-card { transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .income-icon { background: rgba(76, 201, 240, 0.15); color: var(--success); }
+        .expense-icon { background: rgba(247, 37, 133, 0.15); color: var(--danger); }
+        .balance-icon { background: rgba(67, 97, 238, 0.15); color: var(--primary); }
+        .btn-primary { background: var(--primary); border-color: var(--primary); }
+        .btn-primary:hover { background: var(--secondary); border-color: var(--secondary); }
+        .upload-zone { border: 2px dashed #dee2e6; border-radius: 12px; padding: 3rem; text-align: center; transition: all 0.3s; cursor: pointer; }
+        .upload-zone:hover, .upload-zone.dragover { border-color: var(--primary); background: rgba(67,97,238,0.05); }
+        .table th { font-weight: 600; color: #495057; border-top: none; }
+        .badge-category { font-size: 0.75rem; padding: 0.4em 0.8em; }
+        .chart-container { position: relative; height: 300px; }
+        .budget-progress { height: 8px; border-radius: 4px; }
+        .receipt-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; cursor: pointer; }
+        .receipt-modal-img { max-width: 100%; max-height: 80vh; }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/"><i class="bi bi-receipt me-2"></i>Receipt Tracker</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="/"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/upload"><i class="bi bi-cloud-upload me-1"></i>Upload</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/search"><i class="bi bi-search me-1"></i>Search</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/manual"><i class="bi bi-pencil-square me-1"></i>Manual</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/budgets"><i class="bi bi-piggy-bank me-1"></i>Budgets</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/recurring"><i class="bi bi-arrow-repeat me-1"></i>Recurring</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <main class="container pb-5">{% block content %}{% endblock %}</main>
+    
+    <!-- Receipt Image Modal -->
+    <div class="modal fade" id="receiptModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Receipt Image</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="receiptModalImg" src="" class="receipt-modal-img">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function showReceipt(filename) {
+            document.getElementById('receiptModalImg').src = '/receipts/' + filename;
+            new bootstrap.Modal(document.getElementById('receiptModal')).show();
+        }
+        function formatCurrency(n) { return new Intl.NumberFormat('en-US', {style:'currency',currency:'USD'}).format(n); }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

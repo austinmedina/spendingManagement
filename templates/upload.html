@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Upload Receipt - Receipt Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12"><h2 class="mb-0">Upload Receipt</h2><p class="text-muted">Upload a receipt image to automatically extract items</p></div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-cloud-upload me-2"></i>Upload Image</div>
+            <div class="card-body">
+                <div class="upload-zone" id="uploadZone">
+                    <i class="bi bi-image text-muted" style="font-size:3rem;"></i>
+                    <p class="mt-3 mb-1">Drag and drop your receipt here</p>
+                    <p class="text-muted small">or click to browse (JPG, PNG, PDF)</p>
+                    <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.pdf" class="d-none">
+                </div>
+                <div id="fileInfo" class="mt-3 d-none">
+                    <div class="d-flex align-items-center">
+                        <img id="previewImg" src="" class="receipt-thumb me-2" style="width:60px;height:60px;">
+                        <div class="flex-grow-1">
+                            <strong id="fileName"></strong>
+                            <div class="text-muted small" id="fileSize"></div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger" id="removeFile"><i class="bi bi-x"></i></button>
+                    </div>
+                </div>
+                <button class="btn btn-primary w-100 mt-3" id="uploadBtn" disabled><i class="bi bi-upload me-2"></i>Process Receipt</button>
+                <div id="uploadProgress" class="mt-3 d-none">
+                    <div class="progress" style="height:8px;"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div></div>
+                    <p class="text-center mt-2 text-muted small">Analyzing receipt...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6 mb-4">
+        <div class="card" id="resultsCard" style="display:none;">
+            <div class="card-header"><i class="bi bi-list-check me-2"></i>Extracted Items</div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Store</label>
+                        <input type="text" class="form-control" id="storeName" placeholder="Store name">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Date</label>
+                        <input type="date" class="form-control" id="receiptDate">
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Person</label>
+                        <input type="text" class="form-control" id="personName" placeholder="Who made purchase">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Account</label>
+                        <input type="text" class="form-control" id="bankAccount" placeholder="Payment method">
+                    </div>
+                </div>
+                <hr>
+                <div id="itemsList" style="max-height:300px;overflow-y:auto;"></div>
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                    <strong>Total: <span id="totalAmount">$0.00</span></strong>
+                    <button class="btn btn-success" id="saveBtn"><i class="bi bi-check-lg me-2"></i>Save All Items</button>
+                </div>
+            </div>
+        </div>
+        <div class="alert alert-success d-none mt-3" id="successAlert"><i class="bi bi-check-circle me-2"></i><span id="successMessage"></span></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const categories = {{ categories | tojson }};
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const uploadBtn = document.getElementById('uploadBtn');
+let selectedFile = null, receiptImage = null;
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+    if (!['image/jpeg','image/png','image/jpg','application/pdf'].includes(file.type)) { alert('Invalid file type'); return; }
+    selectedFile = file;
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileSize').textContent = (file.size/1024).toFixed(1) + ' KB';
+    
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = e => document.getElementById('previewImg').src = e.target.result;
+        reader.readAsDataURL(file);
+    } else {
+        document.getElementById('previewImg').src = '';
+    }
+    
+    document.getElementById('fileInfo').classList.remove('d-none');
+    uploadBtn.disabled = false;
+}
+
+document.getElementById('removeFile').addEventListener('click', () => {
+    selectedFile = null; fileInput.value = '';
+    document.getElementById('fileInfo').classList.add('d-none');
+    uploadBtn.disabled = true;
+});
+
+uploadBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    document.getElementById('uploadProgress').classList.remove('d-none');
+    uploadBtn.disabled = true;
+    document.getElementById('resultsCard').style.display = 'none';
+    
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    
+    try {
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) { receiptImage = data.receipt_image; displayResults(data); }
+        else alert('Error: ' + (data.error || 'Failed'));
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { document.getElementById('uploadProgress').classList.add('d-none'); uploadBtn.disabled = false; }
+});
+
+function displayResults(data) {
+    document.getElementById('storeName').value = data.store || '';
+    document.getElementById('receiptDate').value = data.date || new Date().toISOString().split('T')[0];
+    
+    const itemsList = document.getElementById('itemsList');
+    itemsList.innerHTML = data.items.map((item, i) => `
+        <div class="d-flex align-items-center mb-2 p-2 bg-light rounded" data-index="${i}">
+            <input type="checkbox" class="form-check-input me-2 item-check" checked>
+            <div class="flex-grow-1"><input type="text" class="form-control form-control-sm item-name" value="${item.name}"></div>
+            <select class="form-select form-select-sm mx-2 item-category" style="width:130px;">
+                ${categories.map(c => `<option ${c===item.category?'selected':''}>${c}</option>`).join('')}
+            </select>
+            <div style="width:90px;"><input type="number" class="form-control form-control-sm item-price" value="${item.price.toFixed(2)}" step="0.01"></div>
+        </div>
+    `).join('');
+    
+    updateTotal();
+    document.getElementById('resultsCard').style.display = 'block';
+    itemsList.querySelectorAll('.item-check,.item-price').forEach(el => el.addEventListener('change', updateTotal));
+}
+
+function updateTotal() {
+    let total = 0;
+    document.querySelectorAll('#itemsList > div').forEach(div => {
+        if (div.querySelector('.item-check').checked) total += parseFloat(div.querySelector('.item-price').value) || 0;
+    });
+    document.getElementById('totalAmount').textContent = formatCurrency(total);
+}
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+    const items = [];
+    document.querySelectorAll('#itemsList > div').forEach(div => {
+        if (div.querySelector('.item-check').checked) {
+            items.push({ name: div.querySelector('.item-name').value, category: div.querySelector('.item-category').value, price: parseFloat(div.querySelector('.item-price').value) || 0 });
+        }
+    });
+    if (!items.length) { alert('Select at least one item'); return; }
+    
+    try {
+        const res = await fetch('/api/save-items', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items, store: document.getElementById('storeName').value, date: document.getElementById('receiptDate').value, person: document.getElementById('personName').value, bank_account: document.getElementById('bankAccount').value, receipt_image: receiptImage })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('successMessage').textContent = `Saved ${data.saved} items!`;
+            document.getElementById('successAlert').classList.remove('d-none');
+            document.getElementById('resultsCard').style.display = 'none';
+            selectedFile = null; fileInput.value = ''; receiptImage = null;
+            document.getElementById('fileInfo').classList.add('d-none');
+            uploadBtn.disabled = true;
+            setTimeout(() => document.getElementById('successAlert').classList.add('d-none'), 3000);
+        }
+    } catch (e) { alert('Error: ' + e.message); }
+});
+</script>
+{% endblock %}

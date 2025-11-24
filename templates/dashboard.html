@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Receipt Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12"><h2 class="mb-0">Financial Dashboard</h2><p class="text-muted">Overview of your income and spending</p></div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon income-icon me-3"><i class="bi bi-arrow-down-circle"></i></div>
+                <div>
+                    <h6 class="text-muted mb-1">Total Income</h6>
+                    <h3 class="mb-0" id="totalIncome">$0.00</h3>
+                    <small class="text-muted">This month: <span id="monthIncome">$0.00</span></small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon expense-icon me-3"><i class="bi bi-arrow-up-circle"></i></div>
+                <div>
+                    <h6 class="text-muted mb-1">Total Expenses</h6>
+                    <h3 class="mb-0" id="totalExpenses">$0.00</h3>
+                    <small class="text-muted">This month: <span id="monthExpenses">$0.00</span></small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon balance-icon me-3"><i class="bi bi-wallet2"></i></div>
+                <div>
+                    <h6 class="text-muted mb-1">Net Balance</h6>
+                    <h3 class="mb-0" id="netBalance">$0.00</h3>
+                    <small class="text-muted">Income - Expenses</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Budget Alerts -->
+<div class="row mb-4" id="budgetAlertsRow" style="display:none;">
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-header text-warning"><i class="bi bi-exclamation-triangle me-2"></i>Budget Alerts</div>
+            <div class="card-body" id="budgetAlerts"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-graph-up me-2"></i>Monthly Overview</div>
+            <div class="card-body"><div class="chart-container"><canvas id="monthlyChart"></canvas></div></div>
+        </div>
+    </div>
+    <div class="col-lg-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Spending by Category</div>
+            <div class="card-body"><div class="chart-container"><canvas id="categoryChart"></canvas></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Budget Progress & Account Spending -->
+<div class="row mb-4">
+    <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-piggy-bank me-2"></i>Budget Progress</span>
+                <a href="/budgets" class="btn btn-sm btn-outline-primary">Manage</a>
+            </div>
+            <div class="card-body" id="budgetProgress" style="max-height:350px;overflow-y:auto;"></div>
+        </div>
+    </div>
+    <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-credit-card me-2"></i>Spending by Account</div>
+            <div class="card-body"><div class="chart-container"><canvas id="accountChart"></canvas></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-check me-2"></i>Recent Transactions</span>
+                <a href="/search" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light"><tr><th>Date</th><th>Item</th><th>Category</th><th>Store</th><th>Receipt</th><th class="text-end">Amount</th></tr></thead>
+                        <tbody id="recentTransactions"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const colors = ['#4361ee','#f72585','#4cc9f0','#fca311','#7209b7','#06d6a0','#fb8500','#ff006e','#3f37c9','#8338ec','#ff9f1c','#2ec4b6'];
+let monthlyChart, categoryChart, accountChart;
+
+async function loadDashboard() {
+    const [dashRes, transRes] = await Promise.all([fetch('/api/dashboard-data'), fetch('/api/transactions')]);
+    const data = await dashRes.json();
+    const transactions = await transRes.json();
+    
+    document.getElementById('totalIncome').textContent = formatCurrency(data.total_income);
+    document.getElementById('totalExpenses').textContent = formatCurrency(data.total_expenses);
+    document.getElementById('netBalance').textContent = formatCurrency(data.balance);
+    document.getElementById('monthIncome').textContent = formatCurrency(data.current_month_income);
+    document.getElementById('monthExpenses').textContent = formatCurrency(data.current_month_expenses);
+    
+    updateMonthlyChart(data);
+    updateCategoryChart(data);
+    updateAccountChart(data);
+    updateBudgetProgress(data.budget_status);
+    updateRecentTransactions(transactions);
+}
+
+function updateMonthlyChart(data) {
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    if (monthlyChart) monthlyChart.destroy();
+    monthlyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.monthly_labels.map(l => { const [y,m] = l.split('-'); return new Date(y,m-1).toLocaleDateString('en-US',{month:'short',year:'2-digit'}); }),
+            datasets: [
+                { label: 'Income', data: data.monthly_income, backgroundColor: '#4cc9f0', borderRadius: 6 },
+                { label: 'Expenses', data: data.monthly_spending, backgroundColor: '#f72585', borderRadius: 6 }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '$'+v } } } }
+    });
+}
+
+function updateCategoryChart(data) {
+    const ctx = document.getElementById('categoryChart').getContext('2d');
+    if (categoryChart) categoryChart.destroy();
+    categoryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: data.category_labels, datasets: [{ data: data.category_values, backgroundColor: colors.slice(0, data.category_labels.length), borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } } }
+    });
+}
+
+function updateAccountChart(data) {
+    const ctx = document.getElementById('accountChart').getContext('2d');
+    if (accountChart) accountChart.destroy();
+    accountChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: data.account_labels, datasets: [{ label: 'Spending', data: data.account_values, backgroundColor: colors.slice(0, data.account_labels.length), borderRadius: 6 }] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { callback: v => '$'+v } } } }
+    });
+}
+
+function updateBudgetProgress(budgets) {
+    const container = document.getElementById('budgetProgress');
+    const alerts = [];
+    
+    if (!budgets.length) {
+        container.innerHTML = '<p class="text-muted text-center">No budgets set. <a href="/budgets">Create one</a></p>';
+        return;
+    }
+    
+    container.innerHTML = budgets.map(b => {
+        const pct = b.percentage;
+        let color = 'success';
+        if (pct >= 90) { color = 'danger'; alerts.push(b); }
+        else if (pct >= 75) color = 'warning';
+        
+        return `<div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+                <span>${b.category}</span>
+                <span class="text-muted">${formatCurrency(b.spent)} / ${formatCurrency(b.limit)}</span>
+            </div>
+            <div class="progress budget-progress">
+                <div class="progress-bar bg-${color}" style="width:${pct}%"></div>
+            </div>
+        </div>`;
+    }).join('');
+    
+    if (alerts.length) {
+        document.getElementById('budgetAlertsRow').style.display = 'block';
+        document.getElementById('budgetAlerts').innerHTML = alerts.map(b => 
+            `<div class="d-flex justify-content-between align-items-center mb-2">
+                <span><strong>${b.category}</strong> is at ${b.percentage.toFixed(0)}% (${formatCurrency(b.spent)} of ${formatCurrency(b.limit)})</span>
+                <span class="badge bg-danger">${b.remaining < 0 ? 'Over budget!' : 'Almost there'}</span>
+            </div>`
+        ).join('');
+    }
+}
+
+function updateRecentTransactions(transactions) {
+    const tbody = document.getElementById('recentTransactions');
+    const sorted = transactions.sort((a,b) => b.date.localeCompare(a.date)).slice(0, 10);
+    tbody.innerHTML = sorted.map(t => `
+        <tr>
+            <td class="text-muted">${t.date}</td>
+            <td><strong>${t.item_name}</strong></td>
+            <td><span class="badge bg-secondary badge-category">${t.category}</span></td>
+            <td>${t.store}</td>
+            <td>${t.receipt_image ? `<img src="/receipts/${t.receipt_image}" class="receipt-thumb" onclick="showReceipt('${t.receipt_image}')">` : '<span class="text-muted">-</span>'}</td>
+            <td class="text-end ${t.type==='income'?'text-success':'text-danger'}">${t.type==='income'?'+':'-'}${formatCurrency(t.price)}</td>
+        </tr>
+    `).join('');
+}
+
+loadDashboard();
+</script>
+{% endblock %}

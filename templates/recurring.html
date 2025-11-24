@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block title %}Recurring Transactions - Receipt Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div><h2 class="mb-0">Recurring Transactions</h2><p class="text-muted mb-0">Manage automatic recurring expenses and income</p></div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#recurringModal"><i class="bi bi-plus-lg me-2"></i>Add Recurring</button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-arrow-repeat me-2"></i>Recurring Items</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light"><tr><th>Item</th><th>Category</th><th>Frequency</th><th>Next Date</th><th class="text-end">Amount</th><th>Status</th><th></th></tr></thead>
+                        <tbody id="recurringList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-calculator me-2"></i>Monthly Summary</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Recurring Expenses</span>
+                    <strong class="text-danger" id="monthlyExpenses">$0.00</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Recurring Income</span>
+                    <strong class="text-success" id="monthlyIncome">$0.00</strong>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between">
+                    <span><strong>Net Monthly</strong></span>
+                    <strong id="monthlyNet">$0.00</strong>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><i class="bi bi-calendar-event me-2"></i>Upcoming</div>
+            <div class="card-body" id="upcomingList" style="max-height:250px;overflow-y:auto;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Recurring Modal -->
+<div class="modal fade" id="recurringModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Recurring Transaction</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="recurringForm">
+                    <div class="mb-3">
+                        <label class="form-label">Type</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="type" id="typeExpense" value="expense" checked>
+                            <label class="btn btn-outline-danger" for="typeExpense">Expense</label>
+                            <input type="radio" class="btn-check" name="type" id="typeIncome" value="income">
+                            <label class="btn btn-outline-success" for="typeIncome">Income</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="recItemName" required placeholder="Netflix, Rent, Salary, etc.">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Amount <span class="text-danger">*</span></label>
+                            <div class="input-group"><span class="input-group-text">$</span><input type="number" class="form-control" id="recPrice" required step="0.01" min="0"></div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Category</label>
+                            <select class="form-select" id="recCategory">
+                                {% for cat in categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Frequency</label>
+                            <select class="form-select" id="recFrequency">
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="biweekly">Bi-weekly</option>
+                                <option value="monthly" selected>Monthly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Next Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="recNextDate" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Store/Source</label>
+                            <input type="text" class="form-control" id="recStore" placeholder="Optional">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Account</label>
+                            <input type="text" class="form-control" id="recAccount" placeholder="Optional">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Person</label>
+                        <input type="text" class="form-control" id="recPerson" placeholder="Optional">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveRecurringBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const categories = {{ categories | tojson }};
+const incomeCategories = {{ income_categories | tojson }};
+let recurringModal;
+
+document.getElementById('recNextDate').value = new Date().toISOString().split('T')[0];
+
+// Switch categories based on type
+document.querySelectorAll('input[name="type"]').forEach(radio => {
+    radio.addEventListener('change', e => {
+        const catSelect = document.getElementById('recCategory');
+        const cats = e.target.value === 'income' ? incomeCategories : categories;
+        catSelect.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    });
+});
+
+async function loadRecurring() {
+    const items = await fetch('/api/recurring').then(r => r.json());
+    const tbody = document.getElementById('recurringList');
+    
+    if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No recurring transactions. Click "Add Recurring" to create one.</td></tr>';
+        return;
+    }
+    
+    let monthlyExp = 0, monthlyInc = 0;
+    
+    items.forEach(item => {
+        const amount = parseFloat(item.price);
+        let monthly = amount;
+        if (item.frequency === 'daily') monthly = amount * 30;
+        else if (item.frequency === 'weekly') monthly = amount * 4;
+        else if (item.frequency === 'biweekly') monthly = amount * 2;
+        else if (item.frequency === 'yearly') monthly = amount / 12;
+        
+        if (item.active === 'true') {
+            if (item.type === 'income') monthlyInc += monthly;
+            else monthlyExp += monthly;
+        }
+    });
+    
+    document.getElementById('monthlyExpenses').textContent = formatCurrency(monthlyExp);
+    document.getElementById('monthlyIncome').textContent = formatCurrency(monthlyInc);
+    const net = monthlyInc - monthlyExp;
+    document.getElementById('monthlyNet').textContent = formatCurrency(net);
+    document.getElementById('monthlyNet').className = net >= 0 ? 'text-success' : 'text-danger';
+    
+    tbody.innerHTML = items.map(item => `
+        <tr class="${item.active !== 'true' ? 'table-secondary' : ''}">
+            <td><strong>${item.item_name}</strong><br><small class="text-muted">${item.store || '-'}</small></td>
+            <td><span class="badge bg-secondary">${item.category}</span></td>
+            <td>${item.frequency.charAt(0).toUpperCase() + item.frequency.slice(1)}</td>
+            <td>${item.next_date}</td>
+            <td class="text-end ${item.type === 'income' ? 'text-success' : 'text-danger'}">${item.type === 'income' ? '+' : '-'}${formatCurrency(item.price)}</td>
+            <td>
+                <span class="badge ${item.active === 'true' ? 'bg-success' : 'bg-secondary'}">${item.active === 'true' ? 'Active' : 'Paused'}</span>
+            </td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-${item.active === 'true' ? 'warning' : 'success'}" onclick="toggleRecurring(${item.id})" title="${item.active === 'true' ? 'Pause' : 'Resume'}">
+                        <i class="bi bi-${item.active === 'true' ? 'pause' : 'play'}"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="deleteRecurring(${item.id})"><i class="bi bi-trash"></i></button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+    
+    // Upcoming list
+    const upcoming = items.filter(i => i.active === 'true').sort((a, b) => a.next_date.localeCompare(b.next_date)).slice(0, 5);
+    document.getElementById('upcomingList').innerHTML = upcoming.map(item => `
+        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+            <div>
+                <strong>${item.item_name}</strong>
+                <div class="small text-muted">${item.next_date}</div>
+            </div>
+            <span class="${item.type === 'income' ? 'text-success' : 'text-danger'}">${item.type === 'income' ? '+' : '-'}${formatCurrency(item.price)}</span>
+        </div>
+    `).join('') || '<p class="text-muted text-center">No upcoming transactions</p>';
+}
+
+async function toggleRecurring(id) {
+    await fetch(`/api/recurring/${id}/toggle`, { method: 'POST' });
+    loadRecurring();
+}
+
+async function deleteRecurring(id) {
+    if (!confirm('Delete this recurring transaction?')) return;
+    await fetch(`/api/recurring/${id}`, { method: 'DELETE' });
+    loadRecurring();
+}
+
+document.getElementById('saveRecurringBtn').addEventListener('click', async () => {
+    const data = {
+        item_name: document.getElementById('recItemName').value,
+        price: parseFloat(document.getElementById('recPrice').value),
+        category: document.getElementById('recCategory').value,
+        frequency: document.getElementById('recFrequency').value,
+        next_date: document.getElementById('recNextDate').value,
+        store: document.getElementById('recStore').value,
+        bank_account: document.getElementById('recAccount').value,
+        person: document.getElementById('recPerson').value,
+        type: document.querySelector('input[name="type"]:checked').value
+    };
+    
+    if (!data.item_name || !data.price || !data.next_date) { alert('Fill required fields'); return; }
+    
+    await fetch('/api/recurring', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    recurringModal.hide();
+    document.getElementById('recurringForm').reset();
+    document.getElementById('recNextDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('typeExpense').checked = true;
+    loadRecurring();
+});
+
+recurringModal = new bootstrap.Modal(document.getElementById('recurringModal'));
+loadRecurring();
+</script>
+{% endblock %}
