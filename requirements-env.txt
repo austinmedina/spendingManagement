@@ -34,6 +34,16 @@ FLASK_ENV=development
 FLASK_DEBUG=true
 SECRET_KEY=change-this-to-a-random-string-in-production
 
+# Email Configuration (for password reset)
+# Gmail example - enable "App Passwords" in Google account settings
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM=your-email@gmail.com
+
+# If email is not configured, reset codes will be printed to console
+
 # ============================================
 # Allowed Categories (for reference)
 # ============================================

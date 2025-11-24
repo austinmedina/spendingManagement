@@ -1,4 +1,4 @@
-id,username,password_hash,full_name,is_admin,active
-1,admin,240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9,Administrator,true,true
-2,john,5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8,John,false,true
-3,jane,5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8,Jane,false,true
+id,username,password_hash,full_name,email,is_admin,active,must_change_password
+1,admin,a0f3285b07c26c0dcd2191447f391170d06035e8d57e31a048ba87074f3a9a15,Administrator,admin@example.com,true,true,false
+2,john,5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8,John,john@example.com,false,true,false
+3,jane,5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8,Jane,jane@example.com,false,true,false

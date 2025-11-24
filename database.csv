@@ -1,24 +1,21 @@
-id,item_name,category,store,date,price,person,bank_account,type,receipt_image,group_id,paid_by
-1,Weekly Groceries,Groceries,Walmart,2025-01-15,145.99,John,Chase Checking,expense,,1,John
-2,Gas,Car,Shell,2025-01-14,55.00,John,Chase Checking,expense,,1,John
-3,Salary,Salary,Employer,2025-01-01,3500.00,John,Chase Checking,income,,,John
-4,Netflix,Subscriptions,Netflix,2025-02-10,15.99,John,Visa Credit,expense,,1,John
-5,Netflix,Subscriptions,Netflix,2025-03-10,15.99,John,Visa Credit,expense,,1,John
-6,Netflix,Subscriptions,Netflix,2025-04-10,15.99,John,Visa Credit,expense,,1,John
-7,Netflix,Subscriptions,Netflix,2025-05-10,15.99,John,Visa Credit,expense,,1,John
-8,Netflix,Subscriptions,Netflix,2025-06-10,15.99,John,Visa Credit,expense,,1,John
-9,Netflix,Subscriptions,Netflix,2025-07-10,15.99,John,Visa Credit,expense,,1,John
-10,Netflix,Subscriptions,Netflix,2025-08-10,15.99,John,Visa Credit,expense,,1,John
-11,Netflix,Subscriptions,Netflix,2025-09-10,15.99,John,Visa Credit,expense,,1,John
-12,Netflix,Subscriptions,Netflix,2025-10-10,15.99,John,Visa Credit,expense,,1,John
-13,Netflix,Subscriptions,Netflix,2025-11-10,15.99,John,Visa Credit,expense,,1,John
-14,Rent,Rent,Landlord,2025-02-01,1200.00,John,Chase Checking,expense,,1,John
-15,Rent,Rent,Landlord,2025-03-01,1200.00,John,Chase Checking,expense,,1,John
-16,Rent,Rent,Landlord,2025-04-01,1200.00,John,Chase Checking,expense,,1,John
-17,Rent,Rent,Landlord,2025-05-01,1200.00,John,Chase Checking,expense,,1,John
-18,Rent,Rent,Landlord,2025-06-01,1200.00,John,Chase Checking,expense,,1,John
-19,Rent,Rent,Landlord,2025-07-01,1200.00,John,Chase Checking,expense,,1,John
-20,Rent,Rent,Landlord,2025-08-01,1200.00,John,Chase Checking,expense,,1,John
-21,Rent,Rent,Landlord,2025-09-01,1200.00,John,Chase Checking,expense,,1,John
-22,Rent,Rent,Landlord,2025-10-01,1200.00,John,Chase Checking,expense,,1,John
-23,Rent,Rent,Landlord,2025-11-01,1200.00,John,Chase Checking,expense,,1,John
+id,item_name,category,store,date,price,person,bank_account,type,receipt_image,group_id,receipt_group_id
+1,Netflix,Subscriptions,Netflix,2025-02-10,15.99,John,Visa Credit,expense,,1,
+2,Netflix,Subscriptions,Netflix,2025-03-10,15.99,John,Visa Credit,expense,,1,
+3,Netflix,Subscriptions,Netflix,2025-04-10,15.99,John,Visa Credit,expense,,1,
+4,Netflix,Subscriptions,Netflix,2025-05-10,15.99,John,Visa Credit,expense,,1,
+5,Netflix,Subscriptions,Netflix,2025-06-10,15.99,John,Visa Credit,expense,,1,
+6,Netflix,Subscriptions,Netflix,2025-07-10,15.99,John,Visa Credit,expense,,1,
+7,Netflix,Subscriptions,Netflix,2025-08-10,15.99,John,Visa Credit,expense,,1,
+8,Netflix,Subscriptions,Netflix,2025-09-10,15.99,John,Visa Credit,expense,,1,
+9,Netflix,Subscriptions,Netflix,2025-10-10,15.99,John,Visa Credit,expense,,1,
+10,Netflix,Subscriptions,Netflix,2025-11-10,15.99,John,Visa Credit,expense,,1,
+11,Rent,Rent,Landlord,2025-02-01,1200.00,John,Chase Checking,expense,,1,
+12,Rent,Rent,Landlord,2025-03-01,1200.00,John,Chase Checking,expense,,1,
+13,Rent,Rent,Landlord,2025-04-01,1200.00,John,Chase Checking,expense,,1,
+14,Rent,Rent,Landlord,2025-05-01,1200.00,John,Chase Checking,expense,,1,
+15,Rent,Rent,Landlord,2025-06-01,1200.00,John,Chase Checking,expense,,1,
+16,Rent,Rent,Landlord,2025-07-01,1200.00,John,Chase Checking,expense,,1,
+17,Rent,Rent,Landlord,2025-08-01,1200.00,John,Chase Checking,expense,,1,
+18,Rent,Rent,Landlord,2025-09-01,1200.00,John,Chase Checking,expense,,1,
+19,Rent,Rent,Landlord,2025-10-01,1200.00,John,Chase Checking,expense,,1,
+20,Rent,Rent,Landlord,2025-11-01,1200.00,John,Chase Checking,expense,,1,

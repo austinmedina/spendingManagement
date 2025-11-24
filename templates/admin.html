@@ -111,6 +111,11 @@
                         <small class="text-muted">Display name used throughout the app</small>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="email" required>
+                        <small class="text-muted">For password reset emails</small>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Password <span class="text-danger" id="pwdRequired">*</span></label>
                         <input type="password" class="form-control" id="password">
                         <small class="text-muted">Leave blank to keep existing password</small>
@@ -207,6 +212,7 @@ function editUser(user) {
     document.getElementById('userId').value = user.id;
     document.getElementById('username').value = user.username;
     document.getElementById('fullName').value = user.full_name;
+    document.getElementById('email').value = user.email || '';
     document.getElementById('password').value = '';
     document.getElementById('isAdmin').checked = user.is_admin === 'true';
     document.getElementById('isActive').checked = user.active === 'true';
@@ -225,12 +231,13 @@ document.getElementById('saveUserBtn').addEventListener('click', async () => {
     const data = {
         username: document.getElementById('username').value,
         full_name: document.getElementById('fullName').value,
+        email: document.getElementById('email').value,
         password: document.getElementById('password').value,
         is_admin: document.getElementById('isAdmin').checked,
         active: document.getElementById('isActive').checked
     };
     
-    if (!data.username || !data.full_name) { alert('Fill required fields'); return; }
+    if (!data.username || !data.full_name || !data.email) { alert('Fill required fields'); return; }
     if (!id && !data.password) { alert('Password required for new users'); return; }
     
     try {

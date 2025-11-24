@@ -3,20 +3,28 @@
 
 {% block content %}
 <div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
+    <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <h2 class="mb-0">Financial Dashboard</h2>
             <p class="text-muted mb-0">Overview of your income and spending</p>
         </div>
-        <div class="btn-group">
-            <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="bi bi-person-circle me-1"></i><span id="filterPersonLabel">{{ current_person }}</span>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                {% for person in people %}
-                <li><a class="dropdown-item filter-person" href="#" data-person="{{ person }}">{{ person }}</a></li>
-                {% endfor %}
-            </ul>
+        <div class="d-flex gap-2">
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-primary" id="personalViewBtn">
+                    <i class="bi bi-person me-1"></i>Personal
+                </button>
+                <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" id="groupViewBtn">
+                    <i class="bi bi-people me-1"></i>Group
+                </button>
+                <ul class="dropdown-menu">
+                    {% for group in people_groups %}
+                    <li><a class="dropdown-item group-view-option" href="#" data-group-id="{{ group.id }}">{{ group.name }}</a></li>
+                    {% endfor %}
+                    {% if not people_groups %}
+                    <li><span class="dropdown-item text-muted">No groups</span></li>
+                    {% endif %}
+                </ul>
+            </div>
         </div>
     </div>
 </div>
@@ -131,21 +139,41 @@
 <script>
 const colors = ['#4361ee','#f72585','#4cc9f0','#fca311','#7209b7','#06d6a0','#fb8500','#ff006e','#3f37c9','#8338ec','#ff9f1c','#2ec4b6'];
 let monthlyChart, categoryChart, accountChart;
-let currentFilterPerson = '{{ current_person }}';
+let currentView = 'personal';
+let currentGroupId = '';
 
-// Person filter handlers
-document.querySelectorAll('.filter-person').forEach(link => {
+// View switcher handlers
+document.getElementById('personalViewBtn').addEventListener('click', () => {
+    currentView = 'personal';
+    currentGroupId = '';
+    document.getElementById('personalViewBtn').classList.add('active');
+    document.getElementById('groupViewBtn').classList.remove('active');
+    loadDashboard();
+});
+
+document.querySelectorAll('.group-view-option').forEach(link => {
     link.addEventListener('click', e => {
         e.preventDefault();
-        currentFilterPerson = e.target.dataset.person;
-        document.getElementById('filterPersonLabel').textContent = currentFilterPerson;
+        currentView = 'group';
+        currentGroupId = e.target.dataset.groupId;
+        document.getElementById('personalViewBtn').classList.remove('active');
+        document.getElementById('groupViewBtn').classList.add('active');
+        document.getElementById('groupViewBtn').innerHTML = `<i class="bi bi-people me-1"></i>${e.target.textContent}`;
         loadDashboard();
     });
 });
 
+// Set initial view
+document.getElementById('personalViewBtn').classList.add('active');
+
 async function loadDashboard() {
+    let url = `/api/dashboard-data?person={{ current_person }}&view=${currentView}`;
+    if (currentView === 'group') {
+        url += `&group_id=${currentGroupId}`;
+    }
+    
     const [dashRes, transRes] = await Promise.all([
-        fetch(`/api/dashboard-data?person=${currentFilterPerson}`), 
+        fetch(url), 
         fetch('/api/transactions')
     ]);
     const data = await dashRes.json();

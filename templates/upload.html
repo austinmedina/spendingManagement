@@ -66,7 +66,7 @@
                     </div>
                 </div>
                 <div class="row mb-3">
-                    <div class="col-6">
+                    <div class="col-12">
                         <label class="form-label small text-muted">Group (Optional)</label>
                         <select class="form-select" id="groupSelect">
                             <option value="">None - Personal</option>
@@ -74,10 +74,6 @@
                             <option value="{{ group.id }}">{{ group.name }}</option>
                             {% endfor %}
                         </select>
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label small text-muted">Paid By</label>
-                        <input type="text" class="form-control" id="paidBy" value="{{ current_person }}">
                     </div>
                 </div>
                 <div id="splitSection" style="display:none;">
@@ -241,11 +237,9 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
                 items, 
                 store: document.getElementById('storeName').value, 
                 date: document.getElementById('receiptDate').value, 
-                person: document.getElementById('personName').value, 
                 bank_account: document.getElementById('bankAccount').value, 
                 receipt_image: receiptImage,
                 group_id: groupId,
-                paid_by: document.getElementById('paidBy').value,
                 splits: splits
             })
         });

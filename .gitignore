@@ -1,4 +1,5 @@
 venv/
 .env
 uploads/*
-receipts/*
+receipts/
+__pycache__/

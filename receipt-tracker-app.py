@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from auth import (
     init_users, login_required, admin_required, get_current_user, 
     verify_password, create_user, update_user, delete_user, 
-    read_users, get_user_by_username, is_admin
+    read_users, get_user_by_username, is_admin, must_change_password
 )
 
 load_dotenv()
@@ -55,12 +55,12 @@ os.makedirs(app.config['RECEIPT_FOLDER'], exist_ok=True)
 
 # CSV Headers
 CSV_HEADERS = {
-    'transactions': ['id', 'item_name', 'category', 'store', 'date', 'price', 'person', 'bank_account', 'type', 'receipt_image', 'group_id', 'paid_by'],
+    'transactions': ['id', 'item_name', 'category', 'store', 'date', 'price', 'person', 'bank_account', 'type', 'receipt_image', 'group_id', 'receipt_group_id'],
     'budgets': ['id', 'category', 'amount', 'period', 'start_date', 'person'],
     'recurring': ['id', 'item_name', 'category', 'store', 'price', 'person', 'bank_account', 'type', 'frequency', 'next_date', 'active', 'group_id'],
     'accounts': ['id', 'name', 'type', 'person'],
     'groups': ['id', 'name', 'members'],
-    'splits': ['id', 'transaction_id', 'person', 'amount', 'percentage']
+    'splits': ['id', 'receipt_group_id', 'person', 'amount', 'percentage']
 }
 
 def init_csv():
@@ -70,9 +70,9 @@ def init_csv():
             writer = csv.DictWriter(f, fieldnames=CSV_HEADERS['transactions'])
             writer.writeheader()
             samples = [
-                {'id': '1', 'item_name': 'Weekly Groceries', 'category': 'Groceries', 'store': 'Walmart', 'date': '2025-01-15', 'price': '145.99', 'person': 'John', 'bank_account': 'Chase Checking', 'type': 'expense', 'receipt_image': '', 'group_id': '1', 'paid_by': 'John'},
-                {'id': '2', 'item_name': 'Gas', 'category': 'Car', 'store': 'Shell', 'date': '2025-01-14', 'price': '55.00', 'person': 'John', 'bank_account': 'Chase Checking', 'type': 'expense', 'receipt_image': '', 'group_id': '1', 'paid_by': 'John'},
-                {'id': '3', 'item_name': 'Salary', 'category': 'Salary', 'store': 'Employer', 'date': '2025-01-01', 'price': '3500.00', 'person': 'John', 'bank_account': 'Chase Checking', 'type': 'income', 'receipt_image': '', 'group_id': '', 'paid_by': 'John'},
+                {'id': '1', 'item_name': 'Weekly Groceries', 'category': 'Groceries', 'store': 'Walmart', 'date': '2025-01-15', 'price': '145.99', 'person': 'John', 'bank_account': 'Chase Checking', 'type': 'expense', 'receipt_image': '', 'group_id': '1'},
+                {'id': '2', 'item_name': 'Gas', 'category': 'Car', 'store': 'Shell', 'date': '2025-01-14', 'price': '55.00', 'person': 'John', 'bank_account': 'Chase Checking', 'type': 'expense', 'receipt_image': '', 'group_id': '1'},
+                {'id': '3', 'item_name': 'Salary', 'category': 'Salary', 'store': 'Employer', 'date': '2025-01-01', 'price': '3500.00', 'person': 'John', 'bank_account': 'Chase Checking', 'type': 'income', 'receipt_image': '', 'group_id': ''},
             ]
             for row in samples:
                 writer.writerow(row)
@@ -193,9 +193,6 @@ def get_current_username():
 
 def get_person_groups(person):
     groups = read_csv('groups')
-    print(person)
-    if person == 'Administrator':
-        return groups
     return [g for g in groups if person in g['members'].split(',')]
 
 def get_group_members(group_id):
@@ -272,8 +269,7 @@ def process_recurring_transactions():
                 'bank_account': item['bank_account'],
                 'type': item['type'],
                 'receipt_image': '',
-                'group_id': item.get('group_id', ''),
-                'paid_by': item['person']
+                'group_id': item.get('group_id', '')
             }
             write_csv_row('transactions', transaction)
             
@@ -366,12 +362,88 @@ def login():
             user = get_user_by_username(username)
             session['user_id'] = user['id']
             session['username'] = user['username']
+            
+            # Check if must change password
+            if must_change_password(user['id']):
+                flash('You must change your password before continuing.', 'warning')
+                return redirect(url_for('change_password_page'))
+            
             flash(f'Welcome back, {user["full_name"]}!', 'success')
             return redirect(url_for('dashboard'))
         else:
             flash('Invalid username or password.', 'danger')
     
     return render_template('login.html')
+
+@app.route('/change-password', methods=['GET', 'POST'])
+def change_password_page():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not new_password or len(new_password) < 8:
+            flash('Password must be at least 8 characters long.', 'danger')
+        elif new_password != confirm_password:
+            flash('Passwords do not match.', 'danger')
+        else:
+            from auth import change_password
+            change_password(session['user_id'], new_password)
+            flash('Password changed successfully! Please log in with your new password.', 'success')
+            session.clear()
+            return redirect(url_for('login'))
+    
+    user = get_current_user()
+    return render_template('change_password.html', user=user)
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        from auth import create_reset_code, send_reset_email, get_user_by_username
+        
+        user = get_user_by_username(username)
+        if user:
+            code = create_reset_code(username)
+            if code:
+                send_reset_email(username, code)
+                flash('Password reset code sent to your email.', 'success')
+                return redirect(url_for('reset_password', username=username))
+        
+        flash('If the username exists, a reset code has been sent.', 'info')
+    
+    return render_template('forgot_password.html')
+
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    username = request.args.get('username', '')
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        code = request.form.get('code')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        from auth import verify_reset_code, use_reset_code, get_user_by_username
+        
+        if not verify_reset_code(username, code):
+            flash('Invalid or expired reset code.', 'danger')
+        elif len(new_password) < 8:
+            flash('Password must be at least 8 characters long.', 'danger')
+        elif new_password != confirm_password:
+            flash('Passwords do not match.', 'danger')
+        else:
+            user = get_user_by_username(username)
+            if user:
+                from auth import change_password
+                change_password(user['id'], new_password)
+                use_reset_code(username, code)
+                flash('Password reset successfully! You can now log in.', 'success')
+                return redirect(url_for('login'))
+    
+    return render_template('reset_password.html', username=username)
 
 @app.route('/logout')
 def logout():
@@ -385,10 +457,7 @@ def dashboard():
     process_recurring_transactions()
     person = get_current_person()
     groups = get_person_groups(person)
-    all_people = set()
-    for g in groups:
-        all_people.update(g['members'].split(','))
-    return render_template('dashboard.html', categories=CATEGORIES, current_person=person, people=sorted(all_people), current_user=get_current_user())
+    return render_template('dashboard.html', categories=CATEGORIES, current_person=person, people_groups=groups, current_user=get_current_user())
 
 @app.route('/upload')
 @login_required
@@ -455,6 +524,7 @@ def serve_receipt(filename):
 
 # API Routes
 @app.route('/api/upload', methods=['POST'])
+@login_required
 def upload_receipt():
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'No file'}), 400
@@ -478,49 +548,57 @@ def upload_receipt():
     return jsonify(result)
 
 @app.route('/api/save-items', methods=['POST'])
+@login_required
 def save_items():
     data = request.json
     items = data.get('items', [])
     store, date = data.get('store', 'Unknown'), data.get('date', datetime.now().strftime('%Y-%m-%d'))
-    person = data.get('person', get_current_person())
+    person = get_current_person()
     bank = data.get('bank_account', 'Unknown')
     receipt_image = data.get('receipt_image', '')
     group_id = data.get('group_id', '')
-    paid_by = data.get('paid_by', person)
     splits = data.get('splits', [])
     
-    transaction_ids = []
+    # Generate unique receipt group ID for this upload
+    receipt_group_id = str(uuid.uuid4())
+    
+    # Calculate total for splits
+    total = sum(float(item.get('price', 0)) for item in items)
+    
+    # Save each item as a separate transaction
     for item in items:
-        tid = str(get_next_id('transactions'))
         write_csv_row('transactions', {
-            'id': tid,
+            'id': str(get_next_id('transactions')),
             'item_name': item.get('name', 'Unknown'),
             'category': item.get('category', 'Other'),
             'store': store, 'date': date, 'price': item.get('price', 0),
             'person': person, 'bank_account': bank, 'type': 'expense',
-            'receipt_image': receipt_image, 'group_id': group_id, 'paid_by': paid_by
+            'receipt_image': receipt_image, 'group_id': group_id, 
+            'receipt_group_id': receipt_group_id
         })
-        transaction_ids.append(tid)
-        
-        # Save splits if provided
-        if splits:
-            for split in splits:
-                write_csv_row('splits', {
-                    'id': str(get_next_id('splits')),
-                    'transaction_id': tid,
-                    'person': split['person'],
-                    'amount': split['amount'],
-                    'percentage': split.get('percentage', 0)
-                })
+    
+    # Save splits for the entire receipt
+    if splits and group_id:
+        for split in splits:
+            write_csv_row('splits', {
+                'id': str(get_next_id('splits')),
+                'receipt_group_id': receipt_group_id,
+                'person': split['person'],
+                'amount': split['amount'],
+                'percentage': split.get('percentage', 0)
+            })
     
     return jsonify({'success': True, 'saved': len(items)})
 
 @app.route('/api/manual-entry', methods=['POST'])
+@login_required
 def manual_entry():
     data = request.json
-    person = data.get('person', get_current_person())
-    tid = str(get_next_id('transactions'))
+    person = get_current_person()
+    group_id = data.get('group_id', '')
+    receipt_group_id = str(uuid.uuid4()) if group_id else ''
     
+    tid = str(get_next_id('transactions'))
     transaction = {
         'id': tid,
         'item_name': data.get('item_name', 'Unknown'),
@@ -532,25 +610,27 @@ def manual_entry():
         'bank_account': data.get('bank_account', 'Unknown'),
         'type': data.get('type', 'expense'),
         'receipt_image': '',
-        'group_id': data.get('group_id', ''),
-        'paid_by': data.get('paid_by', person)
+        'group_id': group_id,
+        'receipt_group_id': receipt_group_id
     }
     write_csv_row('transactions', transaction)
     
     # Save splits
     splits = data.get('splits', [])
-    for split in splits:
-        write_csv_row('splits', {
-            'id': str(get_next_id('splits')),
-            'transaction_id': tid,
-            'person': split['person'],
-            'amount': split['amount'],
-            'percentage': split.get('percentage', 0)
-        })
+    if splits and group_id:
+        for split in splits:
+            write_csv_row('splits', {
+                'id': str(get_next_id('splits')),
+                'receipt_group_id': receipt_group_id,
+                'person': split['person'],
+                'amount': split['amount'],
+                'percentage': split.get('percentage', 0)
+            })
     
     return jsonify({'success': True, 'transaction': transaction})
 
 @app.route('/api/transactions', methods=['GET'])
+@login_required
 def get_transactions():
     person = get_current_person()
     transactions = filter_by_person_access(read_csv('transactions'), person)
@@ -584,15 +664,25 @@ def get_transaction(tid):
     return jsonify({'error': 'Not found'}), 404
 
 @app.route('/api/dashboard-data')
+@login_required
 def get_dashboard_data():
     person = get_current_person()
     filter_person = request.args.get('person', person)
+    view_mode = request.args.get('view', 'personal')  # 'personal' or 'group'
+    group_id = request.args.get('group_id', '')
     
     transactions = filter_by_person_access(read_csv('transactions'), person)
     budgets = [b for b in read_csv('budgets') if b.get('person') == filter_person]
     splits = read_csv('splits')
     
-    # Calculate actual amounts owed based on splits
+    # Filter based on view mode
+    if view_mode == 'group' and group_id:
+        # Group view: only transactions from this group
+        transactions = [t for t in transactions if t.get('group_id') == group_id]
+    else:
+        # Personal view: only personal transactions (no group)
+        transactions = [t for t in transactions if not t.get('group_id') or t.get('person') == filter_person]
+    
     now = datetime.now()
     current_month = now.strftime('%Y-%m')
     
@@ -607,17 +697,26 @@ def get_dashboard_data():
     month_income, month_expenses = 0, 0
     
     for t in transactions:
-        # Calculate this person's share
-        t_splits = [s for s in splits if s['transaction_id'] == t['id']]
-        if t_splits:
-            # Find this person's split
-            person_split = next((s for s in t_splits if s['person'] == filter_person), None)
-            if not person_split:
-                continue
-            price = float(person_split['amount'])
+        # Calculate this person's share based on splits
+        receipt_group_id = t.get('receipt_group_id', '')
+        if receipt_group_id:
+            t_splits = [s for s in splits if s['receipt_group_id'] == receipt_group_id]
+            if t_splits:
+                person_split = next((s for s in t_splits if s['person'] == filter_person), None)
+                if not person_split:
+                    continue
+                # This is a split transaction - use proportional amount
+                total_receipt = sum(float(tr.get('price', 0)) for tr in transactions if tr.get('receipt_group_id') == receipt_group_id)
+                if total_receipt > 0:
+                    split_ratio = float(person_split['amount']) / total_receipt
+                    price = float(t.get('price', 0)) * split_ratio
+                else:
+                    price = 0
+            else:
+                price = float(t.get('price', 0))
         else:
-            # No splits, use full amount if they're the person
-            if t.get('person') != filter_person and t.get('paid_by') != filter_person:
+            # No split - full amount
+            if t.get('person') != filter_person:
                 continue
             price = float(t.get('price', 0))
         
@@ -673,9 +772,10 @@ def get_accounts():
     return jsonify(accounts)
 
 @app.route('/api/accounts', methods=['POST'])
+@login_required
 def add_account():
     data = request.json
-    person = data.get('person', get_current_person())
+    person = get_current_person()
     account = {
         'id': str(get_next_id('accounts')),
         'name': data.get('name'),
@@ -686,6 +786,7 @@ def add_account():
     return jsonify({'success': True, 'account': account})
 
 @app.route('/api/accounts/<int:aid>', methods=['PUT'])
+@login_required
 def update_account(aid):
     accounts = read_csv('accounts')
     data = request.json
@@ -697,12 +798,14 @@ def update_account(aid):
     return jsonify({'success': True})
 
 @app.route('/api/accounts/<int:aid>', methods=['DELETE'])
+@login_required
 def delete_account(aid):
     accounts = [a for a in read_csv('accounts') if int(a['id']) != aid]
     rewrite_csv('accounts', accounts)
     return jsonify({'success': True})
 
 @app.route('/api/persons')
+@login_required
 def get_persons():
     person = get_current_person()
     groups = get_person_groups(person)
