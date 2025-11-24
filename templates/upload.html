@@ -53,12 +53,36 @@
                 <div class="row mb-3">
                     <div class="col-6">
                         <label class="form-label small text-muted">Person</label>
-                        <input type="text" class="form-control" id="personName" placeholder="Who made purchase">
+                        <input type="text" class="form-control" id="personName" value="{{ current_person }}" placeholder="Who made purchase">
                     </div>
                     <div class="col-6">
                         <label class="form-label small text-muted">Account</label>
-                        <input type="text" class="form-control" id="bankAccount" placeholder="Payment method">
+                        <select class="form-select" id="bankAccount">
+                            <option value="">Select account</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.name }}">{{ account.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Group (Optional)</label>
+                        <select class="form-select" id="groupSelect">
+                            <option value="">None - Personal</option>
+                            {% for group in groups %}
+                            <option value="{{ group.id }}">{{ group.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted">Paid By</label>
+                        <input type="text" class="form-control" id="paidBy" value="{{ current_person }}">
+                    </div>
+                </div>
+                <div id="splitSection" style="display:none;">
+                    <label class="form-label small text-muted">Split With</label>
+                    <div id="splitMembers" class="mb-3"></div>
                 </div>
                 <hr>
                 <div id="itemsList" style="max-height:300px;overflow-y:auto;"></div>
@@ -76,10 +100,38 @@
 {% block extra_js %}
 <script>
 const categories = {{ categories | tojson }};
+const groups = {{ groups | tojson }};
 const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');
 const uploadBtn = document.getElementById('uploadBtn');
 let selectedFile = null, receiptImage = null;
+
+// Handle group selection for splits
+document.getElementById('groupSelect').addEventListener('change', e => {
+    const groupId = e.target.value;
+    if (groupId) {
+        const group = groups.find(g => g.id === groupId);
+        if (group) {
+            const members = group.members.split(',');
+            document.getElementById('splitSection').style.display = 'block';
+            renderSplitMembers(members);
+        }
+    } else {
+        document.getElementById('splitSection').style.display = 'none';
+    }
+});
+
+function renderSplitMembers(members) {
+    const container = document.getElementById('splitMembers');
+    const equalSplit = (100 / members.length).toFixed(2);
+    container.innerHTML = members.map(m => `
+        <div class="d-flex align-items-center mb-2">
+            <span class="me-2" style="width:100px;">${m}</span>
+            <input type="number" class="form-control form-control-sm split-percent" data-person="${m}" value="${equalSplit}" min="0" max="100" step="0.01" style="width:80px;">
+            <span class="ms-1">%</span>
+        </div>
+    `).join('');
+}
 
 uploadZone.addEventListener('click', () => fileInput.click());
 uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
@@ -167,10 +219,35 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     });
     if (!items.length) { alert('Select at least one item'); return; }
     
+    // Calculate splits
+    const groupId = document.getElementById('groupSelect').value;
+    const splits = [];
+    if (groupId) {
+        const total = items.reduce((sum, item) => sum + item.price, 0);
+        document.querySelectorAll('.split-percent').forEach(input => {
+            const percent = parseFloat(input.value) || 0;
+            splits.push({
+                person: input.dataset.person,
+                amount: (total * percent / 100).toFixed(2),
+                percentage: percent
+            });
+        });
+    }
+    
     try {
         const res = await fetch('/api/save-items', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items, store: document.getElementById('storeName').value, date: document.getElementById('receiptDate').value, person: document.getElementById('personName').value, bank_account: document.getElementById('bankAccount').value, receipt_image: receiptImage })
+            body: JSON.stringify({ 
+                items, 
+                store: document.getElementById('storeName').value, 
+                date: document.getElementById('receiptDate').value, 
+                person: document.getElementById('personName').value, 
+                bank_account: document.getElementById('bankAccount').value, 
+                receipt_image: receiptImage,
+                group_id: groupId,
+                paid_by: document.getElementById('paidBy').value,
+                splits: splits
+            })
         });
         const data = await res.json();
         if (data.success) {

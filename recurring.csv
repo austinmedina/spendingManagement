@@ -1,4 +1,3 @@
-id,item_name,category,store,price,person,bank_account,type,frequency,next_date,active
-1,Netflix,Subscriptions,Netflix,15.99,John,Visa Credit,expense,monthly,2025-12-10,true
-2,Rent,Rent,Landlord,1200.00,John,Chase Checking,expense,monthly,2025-12-01,true
-3,Salary,Salary,Employer,3500.00,John,Chase Checking,income,biweekly,2025-12-03,true
+id,item_name,category,store,price,person,bank_account,type,frequency,next_date,active,group_id
+1,Netflix,Subscriptions,Netflix,15.99,John,Visa Credit,expense,monthly,2025-12-10,true,1
+2,Rent,Rent,Landlord,1200.00,John,Chase Checking,expense,monthly,2025-12-01,true,1

@@ -13,6 +13,9 @@ receipt-tracker/
 ├── database.csv           # Transaction data (CSV mode)
 ├── budgets.csv            # Budget data (CSV mode)
 ├── recurring.csv          # Recurring transactions (CSV mode)
+├── accounts.csv           # Bank accounts (CSV mode)
+├── groups.csv             # Expense sharing groups (CSV mode)
+├── splits.csv             # Transaction splits (CSV mode)
 ├── uploads/               # Temp upload folder
 ├── receipts/              # Stored receipt images
 └── templates/
@@ -22,7 +25,9 @@ receipt-tracker/
     ├── search.html        # Transaction search
     ├── manual.html        # Manual entry
     ├── budgets.html       # Budget management
-    └── recurring.html     # Recurring transactions
+    ├── recurring.html     # Recurring transactions
+    ├── accounts.html      # Account management
+    └── groups.html        # Group management
 ```
 
 ## Features
@@ -32,8 +37,12 @@ receipt-tracker/
 | **Receipt Scanning** | Upload images → Azure AI extracts items → Review & save |
 | **Receipt Storage** | View stored receipt images from any transaction |
 | **Dashboard** | Charts for spending trends, categories, accounts, budget alerts |
+| **Person Filtering** | Filter dashboard by person to see individual spending |
 | **Budgets** | Set monthly limits per category with progress tracking |
 | **Recurring** | Auto-generate transactions (daily/weekly/biweekly/monthly/yearly) |
+| **Accounts** | Manage multiple bank accounts, credit cards, and payment methods |
+| **Groups** | Create expense sharing groups (household, roommates, etc.) |
+| **Split Transactions** | Automatically split expenses among group members |
 | **Search** | Filter by date, category, account, person; export to CSV |
 | **Manual Entry** | Add expenses/income without receipts |
 

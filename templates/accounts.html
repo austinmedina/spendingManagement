@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Accounts - Receipt Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div><h2 class="mb-0">Account Management</h2><p class="text-muted mb-0">Manage your bank accounts and payment methods</p></div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#accountModal"><i class="bi bi-plus-lg me-2"></i>Add Account</button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-credit-card me-2"></i>My Accounts</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light"><tr><th>Account Name</th><th>Type</th><th>Owner</th><th></th></tr></thead>
+                        <tbody id="accountsList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-info-circle me-2"></i>Account Types</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <i class="bi bi-wallet2 text-primary me-2"></i><strong>Checking</strong>
+                    <p class="small text-muted mb-0">Day-to-day spending accounts</p>
+                </div>
+                <div class="mb-3">
+                    <i class="bi bi-piggy-bank text-success me-2"></i><strong>Savings</strong>
+                    <p class="small text-muted mb-0">Savings and emergency funds</p>
+                </div>
+                <div class="mb-3">
+                    <i class="bi bi-credit-card text-warning me-2"></i><strong>Credit</strong>
+                    <p class="small text-muted mb-0">Credit cards</p>
+                </div>
+                <div class="mb-3">
+                    <i class="bi bi-cash-coin text-info me-2"></i><strong>Cash</strong>
+                    <p class="small text-muted mb-0">Cash payments</p>
+                </div>
+                <div>
+                    <i class="bi bi-three-dots text-secondary me-2"></i><strong>Other</strong>
+                    <p class="small text-muted mb-0">Other payment methods</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Account Modal -->
+<div class="modal fade" id="accountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="accountModalTitle">Add Account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="accountForm">
+                    <input type="hidden" id="accountId">
+                    <div class="mb-3">
+                        <label class="form-label">Account Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="accountName" required placeholder="e.g., Chase Checking, Visa Credit">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Account Type <span class="text-danger">*</span></label>
+                        <select class="form-select" id="accountType" required>
+                            <option value="checking">Checking</option>
+                            <option value="savings">Savings</option>
+                            <option value="credit">Credit Card</option>
+                            <option value="cash">Cash</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveAccountBtn">Save Account</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let accountModal;
+
+const typeIcons = {
+    checking: 'wallet2',
+    savings: 'piggy-bank',
+    credit: 'credit-card',
+    cash: 'cash-coin',
+    other: 'three-dots'
+};
+
+const typeColors = {
+    checking: 'primary',
+    savings: 'success',
+    credit: 'warning',
+    cash: 'info',
+    other: 'secondary'
+};
+
+async function loadAccounts() {
+    const accounts = await fetch('/api/accounts').then(r => r.json());
+    const tbody = document.getElementById('accountsList');
+    
+    if (!accounts.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No accounts yet. Click "Add Account" to create one.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = accounts.map(a => `
+        <tr>
+            <td>
+                <i class="bi bi-${typeIcons[a.type] || 'three-dots'} text-${typeColors[a.type] || 'secondary'} me-2"></i>
+                <strong>${a.name}</strong>
+            </td>
+            <td><span class="badge bg-${typeColors[a.type] || 'secondary'}">${a.type.charAt(0).toUpperCase() + a.type.slice(1)}</span></td>
+            <td>${a.person}</td>
+            <td class="text-end">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="editAccount(${a.id}, '${a.name}', '${a.type}')"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-outline-danger" onclick="deleteAccount(${a.id})"><i class="bi bi-trash"></i></button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function editAccount(id, name, type) {
+    document.getElementById('accountModalTitle').textContent = 'Edit Account';
+    document.getElementById('accountId').value = id;
+    document.getElementById('accountName').value = name;
+    document.getElementById('accountType').value = type;
+    accountModal.show();
+}
+
+async function deleteAccount(id) {
+    if (!confirm('Delete this account? Transactions using this account will not be affected.')) return;
+    await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
+    loadAccounts();
+}
+
+document.getElementById('saveAccountBtn').addEventListener('click', async () => {
+    const id = document.getElementById('accountId').value;
+    const data = {
+        name: document.getElementById('accountName').value,
+        type: document.getElementById('accountType').value
+    };
+    
+    if (!data.name) { alert('Enter account name'); return; }
+    
+    if (id) {
+        await fetch(`/api/accounts/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    } else {
+        await fetch('/api/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    }
+    
+    accountModal.hide();
+    document.getElementById('accountForm').reset();
+    document.getElementById('accountId').value = '';
+    loadAccounts();
+});
+
+document.getElementById('accountModal').addEventListener('hidden.bs.modal', () => {
+    document.getElementById('accountForm').reset();
+    document.getElementById('accountId').value = '';
+    document.getElementById('accountModalTitle').textContent = 'Add Account';
+});
+
+accountModal = new bootstrap.Modal(document.getElementById('accountModal'));
+loadAccounts();
+</script>
+{% endblock %}
