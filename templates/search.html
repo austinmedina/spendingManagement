@@ -109,35 +109,196 @@ async function searchTransactions() {
     displayResults(allTransactions);
 }
 
-function displayResults(transactions) {
-    const tbody = document.getElementById('resultsTable');
-    const sorted = transactions.sort((a,b) => b.date.localeCompare(a.date));
+function displayResults(data) {
+    document.getElementById('storeName').value = data.store || '';
+    document.getElementById('receiptDate').value = data.date || new Date().toISOString().split('T')[0];
     
-    if (!sorted.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No transactions found</td></tr>';
-        document.getElementById('resultCount').textContent = '0 transactions';
-        document.getElementById('summaryText').textContent = 'Total: $0.00';
+    const itemsList = document.getElementById('itemsList');
+    itemsList.innerHTML = data.items.map((item, i) => `
+        <div class="border rounded p-3 mb-3" data-index="${i}">
+            <div class="d-flex align-items-start mb-2">
+                <input type="checkbox" class="form-check-input me-2 item-check mt-2" checked>
+                <div class="flex-grow-1">
+                    <input type="text" class="form-control form-control-sm mb-2 item-name" value="${item.name}">
+                    <div class="row">
+                        <div class="col-6">
+                            <select class="form-select form-select-sm item-category">
+                                ${categories.map(c => `<option ${c === item.category ? 'selected' : ''}>${c}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control item-price" value="${item.price.toFixed(2)}" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Per-item split toggle -->
+            <div class="item-split-section mt-2" style="display:none;">
+                <small class="text-muted d-block mb-2">Split this item:</small>
+                <div class="item-split-container"></div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary item-split-toggle" onclick="toggleItemSplit(${i})">
+                <i class="bi bi-people"></i> Custom Split
+            </button>
+        </div>
+    `).join('');
+    
+    updateTotal();
+    document.getElementById('resultsCard').style.display = 'block';
+    
+    itemsList.querySelectorAll('.item-check, .item-price').forEach(el => {
+        el.addEventListener('change', updateTotal);
+    });
+}
+
+function toggleItemSplit(index) {
+    const itemDiv = document.querySelector(`[data-index="${index}"]`);
+    const splitSection = itemDiv.querySelector('.item-split-section');
+    const groupId = document.getElementById('groupSelect').value;
+    
+    if (!groupId) {
+        alert('Please select a group first');
         return;
     }
     
-    tbody.innerHTML = sorted.map(t => `
-        <tr>
-            <td>${t.date}</td>
-            <td><strong>${t.item_name}</strong></td>
-            <td><span class="badge bg-secondary badge-category">${t.category}</span></td>
-            <td>${t.store}</td>
-            <td>${t.person}</td>
-            <td>${t.bank_account}</td>
-            <td>${t.receipt_image ? `<img src="/receipts/${t.receipt_image}" class="receipt-thumb" onclick="showReceipt('${t.receipt_image}')">` : '<span class="text-muted">-</span>'}</td>
-            <td class="text-end ${t.type==='income'?'text-success':'text-danger'}">${t.type==='income'?'+':'-'}${formatCurrency(t.price)}</td>
-        </tr>
-    `).join('');
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return;
     
-    document.getElementById('resultCount').textContent = `${sorted.length} transaction${sorted.length!==1?'s':''}`;
-    const income = sorted.filter(t => t.type==='income').reduce((s,t) => s + parseFloat(t.price), 0);
-    const expenses = sorted.filter(t => t.type!=='income').reduce((s,t) => s + parseFloat(t.price), 0);
-    document.getElementById('summaryText').textContent = `Income: ${formatCurrency(income)} | Expenses: ${formatCurrency(expenses)} | Net: ${formatCurrency(income-expenses)}`;
+    if (splitSection.style.display === 'none') {
+        const members = group.members.split(',');
+        const equalSplit = (100 / members.length).toFixed(2);
+        
+        splitSection.querySelector('.item-split-container').innerHTML = members.map(m => `
+            <div class="d-flex align-items-center mb-1">
+                <input type="checkbox" class="form-check-input me-2 item-split-member-check" data-person="${m}" checked>
+                <span class="me-2" style="width:80px;">${m}</span>
+                <input type="number" class="form-control form-control-sm item-split-percent" data-person="${m}" value="${equalSplit}" min="0" max="100" step="0.01" style="width:70px;">
+                <span class="ms-1">%</span>
+            </div>
+        `).join('');
+        
+        // Handle member deselection
+        splitSection.querySelectorAll('.item-split-member-check').forEach(cb => {
+            cb.addEventListener('change', function() {
+                const person = this.dataset.person;
+                const percentInput = splitSection.querySelector(`input.item-split-percent[data-person="${person}"]`);
+                if (this.checked) {
+                    percentInput.disabled = false;
+                } else {
+                    percentInput.disabled = true;
+                    percentInput.value = 0;
+                }
+                redistributeItemSplit(splitSection);
+            });
+        });
+        
+        splitSection.style.display = 'block';
+        itemDiv.querySelector('.item-split-toggle').innerHTML = '<i class="bi bi-x"></i> Cancel Split';
+    } else {
+        splitSection.style.display = 'none';
+        itemDiv.querySelector('.item-split-toggle').innerHTML = '<i class="bi bi-people"></i> Custom Split';
+    }
 }
+
+function redistributeItemSplit(splitSection) {
+    const checkedInputs = splitSection.querySelectorAll('.item-split-member-check:checked');
+    if (checkedInputs.length === 0) return;
+    
+    const equalSplit = (100 / checkedInputs.length).toFixed(2);
+    checkedInputs.forEach(cb => {
+        const person = cb.dataset.person;
+        const percentInput = splitSection.querySelector(`input.item-split-percent[data-person="${person}"]`);
+        percentInput.value = equalSplit;
+    });
+}
+
+// Update the save button to handle per-item splits
+document.getElementById('saveBtn').addEventListener('click', async () => {
+    const items = [];
+    const itemDivs = document.querySelectorAll('#itemsList > div');
+    const groupId = document.getElementById('groupSelect').value;
+    
+    // Collect items with their individual splits
+    itemDivs.forEach(div => {
+        if (!div.querySelector('.item-check').checked) return;
+        
+        const item = {
+            name: div.querySelector('.item-name').value,
+            category: div.querySelector('.item-category').value,
+            price: parseFloat(div.querySelector('.item-price').value) || 0
+        };
+        
+        // Check if this item has custom splits
+        const splitSection = div.querySelector('.item-split-section');
+        if (splitSection.style.display !== 'none' && groupId) {
+            const splits = [];
+            const checkedMembers = splitSection.querySelectorAll('.item-split-member-check:checked');
+            
+            checkedMembers.forEach(cb => {
+                const person = cb.dataset.person;
+                const percent = parseFloat(splitSection.querySelector(`input.item-split-percent[data-person="${person}"]`).value) || 0;
+                splits.push({
+                    person: person,
+                    percentage: percent,
+                    amount: (item.price * percent / 100).toFixed(2)
+                });
+            });
+            
+            item.splits = splits;
+        }
+        
+        items.push(item);
+    });
+    
+    if (!items.length) { alert('Select at least one item'); return; }
+    
+    // Calculate receipt-level splits (for items without custom splits)
+    const receiptSplits = [];
+    if (groupId) {
+        const group = groups.find(g => g.id === groupId);
+        if (group) {
+            const members = group.members.split(',');
+            const totalPrice = items.filter(i => !i.splits).reduce((sum, i) => sum + i.price, 0);
+            const equalSplit = (100 / members.length).toFixed(2);
+            
+            members.forEach(m => {
+                receiptSplits.push({
+                    person: m,
+                    percentage: equalSplit,
+                    amount: (totalPrice * equalSplit / 100).toFixed(2)
+                });
+            });
+        }
+    }
+    
+    try {
+        const res = await fetch('/api/save-items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                items, 
+                store: document.getElementById('storeName').value, 
+                date: document.getElementById('receiptDate').value, 
+                bank_account: document.getElementById('bankAccount').value, 
+                receipt_image: receiptImage,
+                group_id: groupId,
+                splits: receiptSplits
+            })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('successMessage').textContent = `Saved ${data.saved} items!`;
+            document.getElementById('successAlert').classList.remove('d-none');
+            document.getElementById('resultsCard').style.display = 'none';
+            // Reset form...
+        }
+    } catch (e) { alert('Error: ' + e.message); }
+});
 
 document.getElementById('searchBtn').addEventListener('click', searchTransactions);
 document.getElementById('clearBtn').addEventListener('click', () => {
@@ -151,7 +312,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     const headers = ['Date','Item','Category','Store','Person','Account','Type','Amount','Receipt'];
     const rows = allTransactions.map(t => [t.date,`"${t.item_name}"`,t.category,`"${t.store}"`,t.person,t.bank_account,t.type,t.price,t.receipt_image||''].join(','));
     const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'transactions.csv'; a.click();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'csv/transactions.csv'; a.click();
 });
 
 loadFilters();

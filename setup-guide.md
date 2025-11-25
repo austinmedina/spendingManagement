@@ -42,13 +42,14 @@ receipt-tracker/
 ├── database.py            # PostgreSQL module (production)
 ├── requirements.txt       # Python dependencies
 ├── .env                   # Environment config
-├── database.csv           # Transaction data (CSV mode)
-├── budgets.csv            # Budget data (CSV mode)
-├── recurring.csv          # Recurring transactions (CSV mode)
-├── accounts.csv           # Bank accounts (CSV mode)
-├── groups.csv             # Expense sharing groups (CSV mode)
-├── splits.csv             # Transaction splits (CSV mode)
-├── users.csv              # User accounts (CSV mode)
+├── csv/
+│   ├── database.csv       # Transaction data (CSV mode)
+│   ├── budgets.csv        # Budget data (CSV mode)
+│   ├── recurring.csv      # Recurring transactions (CSV mode)
+│   ├── accounts.csv       # Bank accounts (CSV mode)
+│   ├── groups.csv         # Expense sharing groups (CSV mode)
+│   ├── splits.csv         # Transaction splits (CSV mode)
+│   └── users.csv          # User accounts (CSV mode)
 ├── uploads/               # Temp upload folder
 ├── receipts/              # Stored receipt images
 └── templates/
@@ -149,7 +150,7 @@ python app.py
 
 ### CSV Mode (Default)
 - Set `USE_CSV=true` in `.env`
-- Data stored in `database.csv`, `budgets.csv`, `recurring.csv`
+- Data stored in `csv/database.csv`, `csv/budgets.csv`, `csv/recurring.csv`
 - Receipt images stored in `receipts/` folder
 
 ### PostgreSQL Mode

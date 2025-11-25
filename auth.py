@@ -16,8 +16,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-USERS_FILE = 'users.csv'
-RESET_CODES_FILE = 'reset_codes.csv'
+USERS_FILE = 'csv/users.csv'
+RESET_CODES_FILE = 'csv/reset_codes.csv'
 USER_HEADERS = ['id', 'username', 'password_hash', 'full_name', 'email', 'is_admin', 'active', 'must_change_password']
 RESET_HEADERS = ['code', 'username', 'expires', 'used']
 
@@ -42,27 +42,6 @@ def init_users():
                 'full_name': 'Administrator',
                 'email': 'admin@example.com',
                 'is_admin': 'true',
-                'active': 'true',
-                'must_change_password': 'true'
-            })
-            # Default users
-            writer.writerow({
-                'id': '2',
-                'username': 'john',
-                'password_hash': hash_password('password'),
-                'full_name': 'John',
-                'email': 'john@example.com',
-                'is_admin': 'false',
-                'active': 'true',
-                'must_change_password': 'true'
-            })
-            writer.writerow({
-                'id': '3',
-                'username': 'jane',
-                'password_hash': hash_password('password'),
-                'full_name': 'Jane',
-                'email': 'jane@example.com',
-                'is_admin': 'false',
                 'active': 'true',
                 'must_change_password': 'true'
             })
@@ -350,13 +329,13 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash('Please log in to access this page.', 'warning')
-            return redirect(url_for('login'))
+            return redirect(url_for('main.login'))
         
         # Check if password change required
         if must_change_password(session['user_id']):
             if f.__name__ != 'change_password_page' and f.__name__ != 'change_password_submit':
                 flash('You must change your password before continuing.', 'warning')
-                return redirect(url_for('change_password_page'))
+                return redirect(url_for('main.change_password_page'))
         
         return f(*args, **kwargs)
     return decorated_function
@@ -367,16 +346,16 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash('Please log in to access this page.', 'warning')
-            return redirect(url_for('login'))
+            return redirect(url_for('main.login'))
         
         user = get_user_by_id(session['user_id'])
         if not user or user.get('is_admin') != 'true':
             flash('Admin access required.', 'danger')
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('main.dashboard'))
         
         if must_change_password(session['user_id']):
             flash('You must change your password before continuing.', 'warning')
-            return redirect(url_for('change_password_page'))
+            return redirect(url_for('main.change_password_page'))
         
         return f(*args, **kwargs)
     return decorated_function

@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Receipt Tracker{% endblock %}
+
+{% block extra_css %}
+<style>
+.notification-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: #f72585;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+}
+.notification-item {
+    border-left: 4px solid;
+    transition: background 0.2s;
+}
+.notification-item:hover {
+    background: #f8f9fa;
+}
+.notification-item.unread {
+    background: #fff3cd;
+}
+.notification-info { border-color: #4361ee; }
+.notification-warning { border-color: #ffc107; }
+.notification-critical { border-color: #dc3545; }
+.notification-success { border-color: #28a745; }
+.insight-card {
+    border-left: 4px solid;
+    background: white;
+}
+.insight-warning { border-color: #ffc107; }
+.insight-critical { border-color: #dc3545; }
+.insight-success { border-color: #28a745; }
+.insight-info { border-color: #4361ee; }
+.trend-up { color: #dc3545; }
+.trend-down { color: #28a745; }
+.trend-stable { color: #6c757d; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Notifications Bell -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1050; margin-top: 70px;">
+    <div class="dropdown">
+        <button class="btn btn-outline-primary position-relative" type="button" id="notificationDropdown" data-bs-toggle="dropdown">
+            <i class="bi bi-bell"></i>
+            <span class="notification-badge" id="notificationCount" style="display: none;">0</span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end p-0" style="width: 400px; max-height: 500px; overflow-y: auto;">
+            <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                <h6 class="mb-0">Notifications</h6>
+                <button class="btn btn-sm btn-outline-secondary" id="markAllReadBtn">Mark all read</button>
+            </div>
+            <div id="notificationsList"></div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="mb-0">Financial Dashboard</h2>
+            <p class="text-muted mb-0">Overview of your income and spending</p>
+        </div>
+        <div class="d-flex gap-2">
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-primary" id="personalViewBtn">
+                    <i class="bi bi-person me-1"></i>Personal
+                </button>
+                <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" id="groupViewBtn">
+                    <i class="bi bi-people me-1"></i>Group
+                </button>
+                <ul class="dropdown-menu">
+                    {% for group in people_groups %}
+                    <li><a class="dropdown-item group-view-option" href="#" data-group-id="{{ group.id }}">{{ group.name }}</a></li>
+                    {% endfor %}
+                    {% if not people_groups %}
+                    <li><span class="dropdown-item text-muted">No groups</span></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon income-icon me-3"><i class="bi bi-arrow-down-circle"></i></div>
+                <div>
+                    <h6 class="text-muted mb-1">Total Income</h6>
+                    <h3 class="mb-0" id="totalIncome">$0.00</h3>
+                    <small class="text-muted">This month: <span id="monthIncome">$0.00</span></small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon expense-icon me-3"><i class="bi bi-arrow-up-circle"></i></div>
+                <div>
+                    <h6 class="text-muted mb-1">Total Expenses</h6>
+                    <h3 class="mb-0" id="totalExpenses">$0.00</h3>
+                    <small class="text-muted">This month: <span id="monthExpenses">$0.00</span></small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon balance-icon me-3"><i class="bi bi-wallet2"></i></div>
+                <div>
+                    <h6 class="text-muted mb-1">Net Balance</h6>
+                    <h3 class="mb-0" id="netBalance">$0.00</h3>
+                    <small class="text-muted">Income - Expenses</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon" style="background: rgba(124, 77, 255, 0.15); color: #7c4dff;"><i class="bi bi-graph-up"></i></div>
+                <div>
+                    <h6 class="text-muted mb-1">Monthly Trend</h6>
+                    <h3 class="mb-0 trend-stable" id="trendIndicator">--</h3>
+                    <small class="text-muted" id="trendText">vs last month</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Insights & Predictions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-lightbulb me-2"></i>Insights & Recommendations</div>
+            <div class="card-body" id="insightsList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Month-End Prediction -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-calendar-check me-2"></i>Month-End Projection</div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <h5 class="mb-1" id="currentSpending">$0</h5>
+                        <small class="text-muted">Spent So Far</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h5 class="mb-1" id="projectedTotal">$0</h5>
+                        <small class="text-muted">Projected Total</small>
+                    </div>
+                    <div class="col-6">
+                        <h5 class="mb-1" id="dailyAverage">$0</h5>
+                        <small class="text-muted">Daily Average</small>
+                    </div>
+                    <div class="col-6">
+                        <h5 class="mb-1" id="daysRemaining">0</h5>
+                        <small class="text-muted">Days Remaining</small>
+                    </div>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between">
+                    <span>vs Last Month:</span>
+                    <strong id="vsLastMonth" class="text-muted">$0</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-arrow-repeat me-2"></i>Recurring Impact</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Active Recurring Items</span>
+                    <strong id="recurringCount">0</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Monthly Recurring Total</span>
+                    <strong class="text-danger" id="recurringMonthly">$0</strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Annual Recurring Total</span>
+                    <strong class="text-info" id="recurringAnnual">$0</strong>
+                </div>
+                <hr>
+                <a href="/recurring" class="btn btn-sm btn-outline-primary w-100">Manage Recurring</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-graph-up me-2"></i>Monthly Overview</div>
+            <div class="card-body"><div class="chart-container"><canvas id="monthlyChart"></canvas></div></div>
+        </div>
+    </div>
+    <div class="col-lg-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Top Categories</div>
+            <div class="card-body" id="topCategoriesList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Budget & Spending Patterns -->
+<div class="row mb-4">
+    <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-piggy-bank me-2"></i>Budget Progress</span>
+                <a href="/budgets" class="btn btn-sm btn-outline-primary">Manage</a>
+            </div>
+            <div class="card-body" id="budgetProgress" style="max-height:350px;overflow-y:auto;"></div>
+        </div>
+    </div>
+    <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-calendar-week me-2"></i>Spending Patterns</div>
+            <div class="card-body">
+                <h6 class="mb-3">Spending by Day of Week</h6>
+                <div class="chart-container" style="height: 200px;"><canvas id="dayOfWeekChart"></canvas></div>
+                <hr>
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h6 class="mb-1" id="weekdayAvg">$0</h6>
+                        <small class="text-muted">Weekday Avg</small>
+                    </div>
+                    <div class="col-6">
+                        <h6 class="mb-1" id="weekendAvg">$0</h6>
+                        <small class="text-muted">Weekend Avg</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Stores -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-shop me-2"></i>Top Spending Locations</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Store</th><th class="text-end">Amount</th><th class="text-end">% of Total</th></tr></thead>
+                        <tbody id="topStoresList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-check me-2"></i>Recent Transactions</span>
+                <a href="/search" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light"><tr><th>Date</th><th>Item</th><th>Category</th><th>Store</th><th>Receipt</th><th class="text-end">Amount</th></tr></thead>
+                        <tbody id="recentTransactions"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const colors = ['#4361ee','#f72585','#4cc9f0','#fca311','#7209b7','#06d6a0','#fb8500','#ff006e','#3f37c9','#8338ec','#ff9f1c','#2ec4b6'];
+let monthlyChart, dayOfWeekChart;
+let currentView = 'personal';
+let currentGroupId = '';
+
+// View switcher handlers
+document.getElementById('personalViewBtn').addEventListener('click', () => {
+    currentView = 'personal';
+    currentGroupId = '';
+    document.getElementById('personalViewBtn').classList.add('active');
+    document.getElementById('groupViewBtn').classList.remove('active');
+    loadDashboard();
+});
+
+document.querySelectorAll('.group-view-option').forEach(link => {
+    link.addEventListener('click', e => {
+        e.preventDefault();
+        currentView = 'group';
+        currentGroupId = e.target.dataset.groupId;
+        document.getElementById('personalViewBtn').classList.remove('active');
+        document.getElementById('groupViewBtn').classList.add('active');
+        document.getElementById('groupViewBtn').innerHTML = `<i class="bi bi-people me-1"></i>${e.target.textContent}`;
+        loadDashboard();
+    });
+});
+
+document.getElementById('personalViewBtn').classList.add('active');
+
+async function loadNotifications() {
+    try {
+        const notifications = await fetch('/api/notifications').then(r => r.json());
+        const unread = notifications.filter(n => n.read === 'false');
+        
+        const badge = document.getElementById('notificationCount');
+        if (unread.length > 0) {
+            badge.textContent = unread.length;
+            badge.style.display = 'block';
+        } else {
+            badge.style.display = 'none';
+        }
+        
+        const container = document.getElementById('notificationsList');
+        if (!notifications.length) {
+            container.innerHTML = '<div class="text-center text-muted p-4">No notifications</div>';
+            return;
+        }
+        
+        container.innerHTML = notifications.map(n => `
+            <div class="notification-item notification-${n.type} p-3 border-bottom ${n.read === 'false' ? 'unread' : ''}" onclick="markNotificationRead(${n.id})">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>${n.title}</strong>
+                        <p class="mb-1 small">${n.message}</p>
+                        <small class="text-muted">${new Date(n.date).toLocaleString()}</small>
+                    </div>
+                    ${n.read === 'false' ? '<span class="badge bg-primary">New</span>' : ''}
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error('Error loading notifications:', e);
+    }
+}
+
+async function markNotificationRead(id) {
+    await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
+    loadNotifications();
+}
+
+document.getElementById('markAllReadBtn').addEventListener('click', async () => {
+    await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+    loadNotifications();
+});
+
+async function loadDashboard() {
+    let url = `/api/dashboard-enhanced?person={{ current_person }}&view=${currentView}`;
+    if (currentView === 'group') url += `&group_id=${currentGroupId}`;
+    
+    try {
+        const [dashData, transData] = await Promise.all([
+            fetch(url).then(r => r.json()),
+            fetch('/api/transactions').then(r => r.json())
+        ]);
+        
+        updateBasicStats(dashData.basic_stats, dashData.trends);
+        updateInsights(dashData.insights);
+        updatePredictions(dashData.predictions);
+        updateRecurringImpact(dashData.recurring_impact);
+        updateMonthlyChart(dashData.trends);
+        updateTopCategories(dashData.top_categories);
+        updateTopStores(dashData.top_stores, dashData.basic_stats.current_month_expenses);
+        updateBudgetProgress(dashData.budget_performance);
+        updateSpendingPatterns(dashData.patterns);
+        updateRecentTransactions(transData);
+    } catch (e) {
+        console.error('Error loading dashboard:', e);
+    }
+}
+
+function updateBasicStats(stats, trends) {
+    document.getElementById('totalIncome').textContent = formatCurrency(stats.total_income);
+    document.getElementById('totalExpenses').textContent = formatCurrency(stats.total_expenses);
+    document.getElementById('netBalance').textContent = formatCurrency(stats.balance);
+    document.getElementById('monthIncome').textContent = formatCurrency(stats.current_month_income);
+    document.getElementById('monthExpenses').textContent = formatCurrency(stats.current_month_expenses);
+    
+    const trendIndicator = document.getElementById('trendIndicator');
+    const trendText = document.getElementById('trendText');
+    const change = trends.expense_change_pct;
+    
+    if (change > 5) {
+        trendIndicator.className = 'mb-0 trend-up';
+        trendIndicator.textContent = `+${change}%`;
+        trendText.textContent = 'vs last month ↑';
+    } else if (change < -5) {
+        trendIndicator.className = 'mb-0 trend-down';
+        trendIndicator.textContent = `${change}%`;
+        trendText.textContent = 'vs last month ↓';
+    } else {
+        trendIndicator.className = 'mb-0 trend-stable';
+        trendIndicator.textContent = `${change}%`;
+        trendText.textContent = 'vs last month →';
+    }
+}
+
+function updateInsights(insights) {
+    const container = document.getElementById('insightsList');
+    if (!insights.length) {
+        container.innerHTML = '<p class="text-muted text-center mb-0">No insights available yet. Keep tracking to see recommendations!</p>';
+        return;
+    }
+    
+    container.innerHTML = insights.map(insight => `
+        <div class="insight-card insight-${insight.type} p-3 mb-3 rounded">
+            <div class="d-flex align-items-start">
+                <span class="fs-3 me-3">${insight.icon}</span>
+                <div class="flex-grow-1">
+                    <h6 class="mb-1">${insight.title}</h6>
+                    <p class="mb-1">${insight.message}</p>
+                    <small class="text-muted"><i class="bi bi-lightbulb"></i> ${insight.action}</small>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updatePredictions(predictions) {
+    document.getElementById('currentSpending').textContent = formatCurrency(predictions.current_spending);
+    document.getElementById('projectedTotal').textContent = formatCurrency(predictions.projected_month_end);
+    document.getElementById('dailyAverage').textContent = formatCurrency(predictions.daily_average);
+    document.getElementById('daysRemaining').textContent = predictions.days_remaining;
+    
+    const vsLastMonth = document.getElementById('vsLastMonth');
+    const diff = predictions.vs_last_month;
+    vsLastMonth.textContent = (diff >= 0 ? '+' : '') + formatCurrency(diff);
+    vsLastMonth.className = diff >= 0 ? 'text-danger' : 'text-success';
+}
+
+function updateRecurringImpact(impact) {
+    document.getElementById('recurringCount').textContent = impact.count;
+    document.getElementById('recurringMonthly').textContent = formatCurrency(impact.monthly_total);
+    document.getElementById('recurringAnnual').textContent = formatCurrency(impact.annual_total);
+}
+
+function updateMonthlyChart(trends) {
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    if (monthlyChart) monthlyChart.destroy();
+    monthlyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: trends.monthly_labels.map(l => { const [y,m] = l.split('-'); return new Date(y,m-1).toLocaleDateString('en-US',{month:'short',year:'2-digit'}); }),
+            datasets: [
+                { label: 'Income', data: trends.monthly_income, backgroundColor: '#4cc9f0', borderRadius: 6 },
+                { label: 'Expenses', data: trends.monthly_expenses, backgroundColor: '#f72585', borderRadius: 6 }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '$'+v } } } }
+    });
+}
+
+function updateTopCategories(categories) {
+    const container = document.getElementById('topCategoriesList');
+    if (!categories.length) {
+        container.innerHTML = '<p class="text-muted text-center mb-0">No spending data yet</p>';
+        return;
+    }
+    
+    const total = categories.reduce((sum, c) => sum + c.amount, 0);
+    container.innerHTML = categories.map((cat, i) => {
+        const pct = (cat.amount / total * 100).toFixed(1);
+        return `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex align-items-center">
+                <div class="rounded-circle me-2" style="width: 12px; height: 12px; background: ${colors[i]}"></div>
+                <span>${cat.category}</span>
+            </div>
+            <div class="text-end">
+                <strong>${formatCurrency(cat.amount)}</strong>
+                <div class="small text-muted">${pct}%</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function updateTopStores(stores, total) {
+    const tbody = document.getElementById('topStoresList');
+    if (!stores.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No spending data yet</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = stores.map(store => {
+        const pct = (store.amount / total * 100).toFixed(1);
+        return `
+        <tr>
+            <td><strong>${store.store}</strong></td>
+            <td class="text-end">${formatCurrency(store.amount)}</td>
+            <td class="text-end">${pct}%</td>
+        </tr>`;
+    }).join('');
+}
+
+function updateBudgetProgress(performance) {
+    const container = document.getElementById('budgetProgress');
+    if (!performance.categories.length) {
+        container.innerHTML = '<p class="text-muted text-center">No budgets set. <a href="/budgets">Create one</a></p>';
+        return;
+    }
+    
+    container.innerHTML = performance.categories.map(b => {
+        const pct = b.percentage;
+        let color = 'success';
+        if (b.status === 'critical') color = 'danger';
+        else if (b.status === 'warning') color = 'warning';
+        
+        return `<div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+                <span>${b.category}</span>
+                <span class="text-muted">${formatCurrency(b.spent)} / ${formatCurrency(b.limit)}</span>
+            </div>
+            <div class="progress budget-progress">
+                <div class="progress-bar bg-${color}" style="width:${Math.min(pct, 100)}%"></div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function updateSpendingPatterns(patterns) {
+    const ctx = document.getElementById('dayOfWeekChart').getContext('2d');
+    if (dayOfWeekChart) dayOfWeekChart.destroy();
+    
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const data = days.map(day => patterns.spending_by_day[day] || 0);
+    
+    dayOfWeekChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: days.map(d => d.substring(0, 3)),
+            datasets: [{
+                label: 'Spending',
+                data: data,
+                backgroundColor: colors[0],
+                borderRadius: 4
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '$'+v } } } }
+    });
+    
+    document.getElementById('weekdayAvg').textContent = formatCurrency(patterns.weekend_vs_weekday.weekday_avg);
+    document.getElementById('weekendAvg').textContent = formatCurrency(patterns.weekend_vs_weekday.weekend_avg);
+}
+
+function updateRecentTransactions(transactions) {
+    const tbody = document.getElementById('recentTransactions');
+    const sorted = transactions.sort((a,b) => b.date.localeCompare(a.date)).slice(0, 10);
+    tbody.innerHTML = sorted.map(t => `
+        <tr>
+            <td class="text-muted">${t.date}</td>
+            <td><strong>${t.item_name}</strong></td>
+            <td><span class="badge bg-secondary badge-category">${t.category}</span></td>
+            <td>${t.store}</td>
+            <td>${t.receipt_image ? `<img src="/receipts/${t.receipt_image}" class="receipt-thumb" onclick="showReceipt('${t.receipt_image}')">` : '<span class="text-muted">-</span>'}</td>
+            <td class="text-end ${t.type==='income'?'text-success':'text-danger'}">${t.type==='income'?'+':'-'}${formatCurrency(t.price)}</td>
+        </tr>
+    `).join('');
+}
+
+loadDashboard();
+loadNotifications();
+setInterval(loadNotifications, 60000); // Refresh notifications every minute
+</script>
+{% endblock %}
