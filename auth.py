@@ -91,6 +91,14 @@ def get_user_by_username(username):
             return user
     return None
 
+def get_user_by_full_name(username):
+    """Get user by full name"""
+    users = read_users()
+    for user in users:
+        if user['full_name'] == username:
+            return user
+    return None
+
 def get_user_by_email(email):
     """Get user by email"""
     users = read_users()

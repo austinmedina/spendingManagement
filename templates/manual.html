@@ -49,14 +49,14 @@
                             <div class="row mb-3">
                                 <div class="col-6">
                                     <label class="form-label">Person</label>
-                                    <input type="text" class="form-control" name="person" value="{{ current_person }}" placeholder="Who made purchase">
+                                    <input type="text" class="form-control" name="person" value="{{ current_person.full_name }}" placeholder="Who made purchase">
                                 </div>
                                 <div class="col-6">
                                     <label class="form-label">Account</label>
-                                    <select class="form-select" name="bank_account">
+                                    <select class="form-select" name="bank_account_id">
                                         <option value="">Select account</option>
                                         {% for account in accounts %}
-                                        <option value="{{ account.name }}">{{ account.name }}</option>
+                                        <option value="{{ account.id }}">{{ account.name }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -66,7 +66,7 @@
                                 <select class="form-select expense-group-select" name="group_id">
                                     <option value="">None - Personal</option>
                                     {% for group in groups %}
-                                    <option value="{{ group.id }}" data-members="{{ group.members }}">{{ group.name }}</option>
+                                    <option value="{{ group.id }}" data-member-ids="{{ group.members }}" data-member-names="{{ group.names }}">{{ group.name }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -110,14 +110,14 @@
                             <div class="row mb-3">
                                 <div class="col-6">
                                     <label class="form-label">Person</label>
-                                    <input type="text" class="form-control" name="person" value="{{ current_person }}" placeholder="Who received">
+                                    <input type="text" class="form-control" name="person" value="{{ current_person.full_name }}" placeholder="Who received">
                                 </div>
                                 <div class="col-6">
                                     <label class="form-label">Account</label>
-                                    <select class="form-select" name="bank_account">
+                                    <select class="form-select" name="bank_account_id">
                                         <option value="">Select account</option>
                                         {% for account in accounts %}
-                                        <option value="{{ account.name }}">{{ account.name }}</option>
+                                        <option value="{{ account.id }}">{{ account.name }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -149,22 +149,45 @@
 <script>
 document.querySelectorAll('input[type="date"]').forEach(el => el.value = new Date().toISOString().split('T')[0]);
 
+function toList(str) {
+    return str
+        .replace(/[\[\]']/g, '')
+        .split(',')
+        .map(s => s.trim());
+}
+
 // Handle group selection for expense splits
-document.querySelector('.expense-group-select').addEventListener('change', function(e) {
+document.querySelector('.expense-group-select').addEventListener('change', function (e) {
     const option = e.target.selectedOptions[0];
-    const members = option.dataset.members;
+
+    const names = toList(option.dataset.memberNames);
+    const ids   = toList(option.dataset.memberIds);
+    console.log
     const container = this.closest('form').querySelector('.expense-split-section');
-    
-    if (members) {
-        const memberList = members.split(',');
-        const equalSplit = (100 / memberList.length).toFixed(2);
-        container.querySelector('.split-container').innerHTML = memberList.map(m => `
+
+    if (names.length && ids.length) {
+        const equalSplit = (100 / names.length).toFixed(2);
+
+        container.querySelector('.split-container').innerHTML = names.map((name, i) => `
             <div class="d-flex align-items-center mb-2">
-                <span class="me-2" style="width:100px;">${m}</span>
-                <input type="number" class="form-control form-control-sm split-percent" data-person="${m}" value="${equalSplit}" min="0" max="100" step="0.01" style="width:80px;">
+                <span class="me-2" style="width:100px;">${name}</span>
+
+                <input type="hidden" class="member-id" value="${ids[i]}">
+
+                <input type="number"
+                       class="form-control form-control-sm split-percent"
+                       data-person-id="${ids[i]}"
+                       data-person-name="${name}"
+                       value="${equalSplit}"
+                       min="0"
+                       max="100"
+                       step="0.01"
+                       style="width:80px;">
+
                 <span class="ms-1">%</span>
             </div>
         `).join('');
+
         container.style.display = 'block';
     } else {
         container.style.display = 'none';
@@ -188,14 +211,14 @@ async function submitEntry(form) {
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
     data.price = parseFloat(data.price) || 0;
-    
     // Calculate splits if group selected
     const splits = [];
     if (data.group_id) {
         form.querySelectorAll('.split-percent').forEach(input => {
             const percent = parseFloat(input.value) || 0;
+
             splits.push({
-                person: input.dataset.person,
+                personId: input.dataset.personId,
                 amount: (data.price * percent / 100).toFixed(2),
                 percentage: percent
             });
@@ -212,7 +235,10 @@ async function submitEntry(form) {
             setTimeout(() => document.getElementById('successAlert').classList.add('d-none'), 3000);
             form.reset();
             form.querySelector('input[type="date"]').value = new Date().toISOString().split('T')[0];
-            form.querySelector('.expense-split-section').style.display = 'none';
+            const section = form.querySelector('.expense-split-section');
+            if (section) {
+                section.style.display = 'none';
+            }
             loadRecent();
         }
     } catch (e) { alert('Error: ' + e.message); }

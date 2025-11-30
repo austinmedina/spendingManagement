@@ -120,7 +120,7 @@ def reset_password():
 def dashboard():
     """Enhanced dashboard with analytics"""
     user = get_current_user()
-    person = user['full_name']
+    person = {"id":user["id"], "full_name":user["full_name"]}
     
     # Process recurring transactions
     process_recurring_transactions()
@@ -130,7 +130,7 @@ def dashboard():
     notification_service.check_recurring_reminders(person)
     
     # Get user's groups
-    groups = get_person_groups(person)
+    groups = get_person_groups(person["id"])
     
     return render_template(
         'dashboard_enhanced.html',

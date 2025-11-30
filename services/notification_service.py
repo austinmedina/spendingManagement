@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict
 from config import Config
 from models import NotificationModel, BudgetModel, RecurringModel, TransactionModel
-from auth import get_user_by_username
+from auth import get_user_by_username, get_user_by_id
 
 class NotificationService:
     """Service for managing notifications and reminders"""
@@ -33,9 +33,9 @@ class NotificationService:
             'data': data
         })
     
-    def get_user_notifications(self, user: str, unread_only: bool = False) -> List[Dict]:
+    def get_user_notifications(self, userID: str, unread_only: bool = False) -> List[Dict]:
         """Get notifications for a user"""
-        return self.notification_model.get_by_user(user, unread_only)
+        return self.notification_model.get_by_user(userID, unread_only)
     
     def mark_read(self, notification_id: int) -> bool:
         """Mark notification as read"""
@@ -144,12 +144,12 @@ class NotificationService:
         
         return reminders
     
-    def check_large_transaction_alert(self, person: str, amount: float, 
+    def check_large_transaction_alert(self, personID: str, amount: float, 
                                      item_name: str) -> Dict:
         """Create alert for large transactions"""
         # Calculate average transaction amount
         transactions = self.transaction_model.filter({
-            'person': person,
+            'person': personID,
             'type': 'expense'
         })
         
@@ -161,7 +161,7 @@ class NotificationService:
         # Alert if transaction is 3x average
         if amount > avg_amount * 3:
             return self.create_notification(
-                user=person,
+                user=personID,
                 type='large_transaction',
                 title='💸 Large Transaction Detected',
                 message=f'You just spent ${amount:.2f} on {item_name} (3x your average transaction)',
@@ -170,7 +170,7 @@ class NotificationService:
         
         return None
     
-    def create_goal_achievement(self, person: str, goal_type: str, 
+    def create_goal_achievement(self, personID: str, goal_type: str, 
                                details: str) -> Dict:
         """Create notification for achieving a goal"""
         titles = {
@@ -180,25 +180,25 @@ class NotificationService:
         }
         
         return self.create_notification(
-            user=person,
+            user=personID,
             type='achievement',
             title=titles.get(goal_type, '🎉 Achievement!'),
             message=details,
             data=f'{{"goal_type": "{goal_type}"}}'
         )
     
-    def _send_budget_alert_email(self, person: str, category: str, 
+    def _send_budget_alert_email(self, personID: str, category: str, 
                                 spent: float, limit: float, 
                                 percentage: float, severity: str):
         """Send budget alert email"""
-        user = get_user_by_username(person)
+        user = get_user_by_id(personID)
         if not user or not user.get('email'):
             return
         
         email = user['email']
         
         if not Config.SMTP_USERNAME or not Config.SMTP_PASSWORD:
-            print(f"Email notification skipped (SMTP not configured) for {person}")
+            print(f"Email notification skipped (SMTP not configured) for userID: {personID}")
             return
         
         try:
@@ -262,21 +262,21 @@ Remaining: ${limit - spent:.2f}
                 server.login(Config.SMTP_USERNAME, Config.SMTP_PASSWORD)
                 server.send_message(msg)
             
-            print(f"Budget alert email sent to {person}")
+            print(f"Budget alert email sent to {user["full_name"]}")
         
         except Exception as e:
             print(f"Error sending budget alert email: {e}")
     
-    def send_daily_summary(self, person: str):
+    def send_daily_summary(self, personID: str):
         """Send daily spending summary"""
-        user = get_user_by_username(person)
+        user = get_user_by_id(personID)
         if not user or not user.get('email'):
             return
         
         # Get today's transactions
         today = datetime.now().strftime('%Y-%m-%d')
         transactions = self.transaction_model.filter({
-            'person': person,
+            'userID': personID,
             'start_date': today,
             'end_date': today
         })
@@ -289,7 +289,7 @@ Remaining: ${limit - spent:.2f}
         
         # Create notification
         self.create_notification(
-            user=person,
+            user=personID,
             type='daily_summary',
             title=f'📊 Daily Summary: {today}',
             message=f'Today: {len(transactions)} transactions, ${total_spent:.2f} spent, ${total_income:.2f} income',

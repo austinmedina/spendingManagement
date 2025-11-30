@@ -13,7 +13,7 @@ budgets_bp = Blueprint('budgets', __name__)
 def budgets_page():
     """Budget management page"""
     user = get_current_user()
-    person = user['full_name']
+    person = {"id":user["id"], "full_name":user["full_name"]}
     
     return render_template(
         'budgets.html',

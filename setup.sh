@@ -28,7 +28,7 @@ touch utils/__init__.py
 echo "Initializing CSV files..."
 
 if [ ! -f "database.csv" ]; then
-    echo "id,item_name,category,store,date,price,person,bank_account,type,receipt_image,group_id,receipt_group_id" > database.csv
+    echo "id,item_name,category,store,date,price,person,bank_account_id,type,receipt_image,group_id,receipt_group_id" > database.csv
 fi
 
 if [ ! -f "budgets.csv" ]; then
@@ -36,7 +36,7 @@ if [ ! -f "budgets.csv" ]; then
 fi
 
 if [ ! -f "recurring.csv" ]; then
-    echo "id,item_name,category,store,price,person,bank_account,type,frequency,next_date,active,group_id" > recurring.csv
+    echo "id,item_name,category,store,price,person,bank_account_id,type,frequency,next_date,active,group_id" > recurring.csv
 fi
 
 if [ ! -f "accounts.csv" ]; then

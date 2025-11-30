@@ -6,7 +6,7 @@ Provides insights, trends, and predictions
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 from collections import defaultdict
-from models import TransactionModel, BudgetModel, RecurringModel
+from models import TransactionModel, BudgetModel, RecurringModel, SplitModel
 import math
 
 class AnalyticsService:
@@ -17,7 +17,7 @@ class AnalyticsService:
         self.budget_model = BudgetModel()
         self.recurring_model = RecurringModel()
     
-    def get_enhanced_dashboard_data(self, person: str, 
+    def get_enhanced_dashboard_data(self, personID: str, 
                                    group_id: str = '') -> Dict:
         """Get comprehensive dashboard data with insights"""
         
@@ -26,7 +26,18 @@ class AnalyticsService:
             transactions = [t for t in self.transaction_model.read_all() 
                           if t.get('group_id') == group_id]
         else:
-            transactions = self.transaction_model.filter({'person': person})
+            transactions = self.transaction_model.filter({'personID': personID})
+            
+        if not group_id:
+            for t in transactions:
+                if t["receipt_group_id"]:
+                    splits = SplitModel().get_by_receipt_group(t["receipt_group_id"])
+                    for split in splits:
+                        if split["userID"] == personID:
+                            t["price"] = split["amount"]
+
+        # Filter by date range
+        transactions = self.transaction_model.filter({"start_date": start_date, "end_date": end_date})
         
         # Time ranges
         now = datetime.now()
@@ -49,7 +60,7 @@ class AnalyticsService:
         patterns = self._analyze_spending_patterns(transactions)
         
         # Budget performance
-        budget_performance = self._calculate_budget_performance(person, transactions, current_month)
+        budget_performance = self._calculate_budget_performance(personID, transactions, current_month)
         
         # Predictions
         predictions = self._predict_month_end(transactions, current_month)
@@ -61,7 +72,7 @@ class AnalyticsService:
         )
         
         # Recurring impact
-        recurring_impact = self._calculate_recurring_impact(person)
+        recurring_impact = self._calculate_recurring_impact(personID)
         
         return {
             'basic_stats': basic_stats,
@@ -72,7 +83,8 @@ class AnalyticsService:
             'budget_performance': budget_performance,
             'predictions': predictions,
             'insights': insights,
-            'recurring_impact': recurring_impact
+            'recurring_impact': recurring_impact,
+            'transactions': transactions
         }
     
     def _calculate_basic_stats(self, transactions: List[Dict], 
@@ -146,7 +158,7 @@ class AnalyticsService:
         }
     
     def _get_top_categories(self, transactions: List[Dict], 
-                           current_month: str, limit: int = 5) -> List[Dict]:
+                           current_month: str, limit: int = 15) -> List[Dict]:
         """Get top spending categories"""
         category_totals = defaultdict(float)
         
@@ -221,11 +233,11 @@ class AnalyticsService:
             'difference': round(weekend_avg - weekday_avg, 2)
         }
     
-    def _calculate_budget_performance(self, person: str, 
+    def _calculate_budget_performance(self, personID: str, 
                                      transactions: List[Dict], 
                                      current_month: str) -> Dict:
         """Calculate budget performance"""
-        budgets = self.budget_model.get_by_person(person)
+        budgets = self.budget_model.get_by_person(personID)
         performance = {
             'categories': [],
             'overall_status': 'good',
@@ -362,10 +374,10 @@ class AnalyticsService:
         
         return insights
     
-    def _calculate_recurring_impact(self, person: str) -> Dict:
+    def _calculate_recurring_impact(self, personID: str) -> Dict:
         """Calculate impact of recurring transactions"""
         recurring_items = [r for r in self.recurring_model.get_active() 
-                          if r['person'] == person]
+                          if r['userID'] == personID]
         
         monthly_recurring = 0
         

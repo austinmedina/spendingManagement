@@ -53,7 +53,12 @@
                         <label class="form-label">Members <span class="text-danger">*</span></label>
                         <div id="membersList" class="mb-2"></div>
                         <div class="input-group">
-                            <input type="text" class="form-control" id="newMemberName" placeholder="Add member name">
+                            <select class="form-select" id="newMemberId">
+                                <option value="">Select a user...</option>
+                                {% for user in users %}
+                                    <option value="{{ user['id'] }}">{{ user['full_name'] }}</option>
+                                {% endfor %}
+                            </select>
                             <button type="button" class="btn btn-outline-primary" id="addMemberBtn"><i class="bi bi-plus-lg"></i></button>
                         </div>
                         <small class="text-muted">You are automatically included in the group</small>
@@ -83,7 +88,8 @@ async function loadGroups() {
     }
     
     container.innerHTML = groups.map(g => {
-        const members = g.members.split(',');
+        const members = g.names
+        
         return `
         <div class="border rounded p-3 mb-3">
             <div class="d-flex justify-content-between align-items-start mb-2">
@@ -107,7 +113,13 @@ function editGroup(group) {
     document.getElementById('groupModalTitle').textContent = 'Edit Group';
     document.getElementById('groupId').value = group.id;
     document.getElementById('groupName').value = group.name;
-    currentMembers = group.members.split(',').filter(m => m !== '{{ current_person }}');
+    console.log(group)
+    console.log('{{ current_person }}')
+    for (let i = 0; i < group.members.length; i++) {
+        if (group.members[i].name === '{{ current_person.name }}') continue;
+        currentMembers.push();
+    }
+    console.log(currentMembers)
     renderMembers();
     groupModal.show();
 }
@@ -126,7 +138,7 @@ function renderMembers() {
     }
     container.innerHTML = currentMembers.map((m, i) => `
         <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
-            <span>${m}</span>
+            <span>${m.name}</span>
             <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeMember(${i})"><i class="bi bi-x"></i></button>
         </div>
     `).join('');
@@ -138,21 +150,17 @@ function removeMember(index) {
 }
 
 document.getElementById('addMemberBtn').addEventListener('click', () => {
-    const input = document.getElementById('newMemberName');
-    const name = input.value.trim();
-    if (name && !currentMembers.includes(name)) {
-        currentMembers.push(name);
+    const input = document.getElementById('newMemberId');
+    const id = input.value.trim();
+    console.log(input)
+    if (id && !currentMembers.includes(id)) {
+        currentMembers.push(id);
         renderMembers();
         input.value = '';
     }
 });
 
-document.getElementById('newMemberName').addEventListener('keypress', e => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        document.getElementById('addMemberBtn').click();
-    }
-});
+// No keypress handler needed for select dropdown
 
 document.getElementById('saveGroupBtn').addEventListener('click', async () => {
     const id = document.getElementById('groupId').value;

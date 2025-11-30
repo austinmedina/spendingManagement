@@ -27,27 +27,27 @@ def format_currency(amount: float) -> str:
     """Format amount as currency string"""
     return f"${amount:,.2f}"
 
-def get_person_groups(person: str):
+def get_person_groups(personID: str):
     """Get all groups a person belongs to"""
     from models import GroupModel
     group_model = GroupModel()
-    return group_model.get_by_member(person)
+    return group_model.get_by_member(personID)
 
-def filter_by_person_access(items: list, person: str) -> list:
+def filter_by_person_access(items: list, personID: str) -> list:
     """Filter items to only show what the current person should see"""
     from models import GroupModel
-    
-    if not person:
+
+    if not personID:
         return []
     
     group_model = GroupModel()
-    person_groups = group_model.get_by_member(person)
+    person_groups = group_model.get_by_member(personID)
     group_ids = [g['id'] for g in person_groups]
-    
+
     filtered = []
     for item in items:
         # Show if person owns it or is in the group
-        if item.get('person') == person or \
+        if item.get('person') == personID or \
            item.get('group_id') in group_ids or \
            not item.get('group_id'):
             filtered.append(item)

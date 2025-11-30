@@ -82,6 +82,39 @@
                     {% endif %}
                 </ul>
             </div>
+            <div class="d-flex gap-3 align-items-center">
+                <select id="month" class="form-select w-auto">
+                    <option value="" selected disabled>Month</option>
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+
+                <select id="year" class="form-select w-auto">
+                    <option value="" selected disabled>Year</option>
+                    <!-- add or generate as many years as needed -->
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
+                </select>
+            </div>
+            <script>
+            function getMonthYear() {
+                const m = document.getElementById("month").value;
+                const y = document.getElementById("year").value;
+                return { month: m, year: y };
+            }
+            </script>
         </div>
     </div>
 </div>
@@ -214,7 +247,8 @@
     <div class="col-lg-4 mb-3">
         <div class="card h-100">
             <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Top Categories</div>
-            <div class="card-body" id="topCategoriesList"></div>
+            <div class="card-body"><div class="chart-container"><canvas id="categoryChart"></canvas></div></div>
+            <!-- <div class="card-body" id="topCategoriesList"></div> -->
         </div>
     </div>
 </div>
@@ -293,7 +327,7 @@
 {% block extra_js %}
 <script>
 const colors = ['#4361ee','#f72585','#4cc9f0','#fca311','#7209b7','#06d6a0','#fb8500','#ff006e','#3f37c9','#8338ec','#ff9f1c','#2ec4b6'];
-let monthlyChart, dayOfWeekChart;
+let monthlyChart, categoryChart, dayOfWeekChart;
 let currentView = 'personal';
 let currentGroupId = '';
 
@@ -367,7 +401,9 @@ document.getElementById('markAllReadBtn').addEventListener('click', async () => 
 });
 
 async function loadDashboard() {
-    let url = `/api/dashboard-enhanced?person={{ current_person }}&view=${currentView}`;
+    const person = JSON.parse(`{{ current_person | tojson | safe }}`);
+    let url = `/api/dashboard-enhanced?person=${encodeURIComponent(JSON.stringify(person))}&view=${currentView}`;
+
     if (currentView === 'group') url += `&group_id=${currentGroupId}`;
     
     try {
@@ -381,7 +417,8 @@ async function loadDashboard() {
         updatePredictions(dashData.predictions);
         updateRecurringImpact(dashData.recurring_impact);
         updateMonthlyChart(dashData.trends);
-        updateTopCategories(dashData.top_categories);
+        // updateTopCategories(dashData.top_categories);
+        updateCategoryChart(dashData.top_categories)
         updateTopStores(dashData.top_stores, dashData.basic_stats.current_month_expenses);
         updateBudgetProgress(dashData.budget_performance);
         updateSpendingPatterns(dashData.patterns);
@@ -472,28 +509,40 @@ function updateMonthlyChart(trends) {
     });
 }
 
-function updateTopCategories(categories) {
-    const container = document.getElementById('topCategoriesList');
-    if (!categories.length) {
-        container.innerHTML = '<p class="text-muted text-center mb-0">No spending data yet</p>';
-        return;
-    }
+// function updateTopCategories(categories) {
+//     const container = document.getElementById('topCategoriesList');
+//     if (!categories.length) {
+//         container.innerHTML = '<p class="text-muted text-center mb-0">No spending data yet</p>';
+//         return;
+//     }
     
-    const total = categories.reduce((sum, c) => sum + c.amount, 0);
-    container.innerHTML = categories.map((cat, i) => {
-        const pct = (cat.amount / total * 100).toFixed(1);
-        return `
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="d-flex align-items-center">
-                <div class="rounded-circle me-2" style="width: 12px; height: 12px; background: ${colors[i]}"></div>
-                <span>${cat.category}</span>
-            </div>
-            <div class="text-end">
-                <strong>${formatCurrency(cat.amount)}</strong>
-                <div class="small text-muted">${pct}%</div>
-            </div>
-        </div>`;
-    }).join('');
+//     const total = categories.reduce((sum, c) => sum + c.amount, 0);
+//     container.innerHTML = categories.map((cat, i) => {
+//         const pct = (cat.amount / total * 100).toFixed(1);
+//         return `
+//         <div class="d-flex justify-content-between align-items-center mb-1">
+//             <div class="d-flex align-items-center">
+//                 <div class="rounded-circle me-2" style="width: 12px; height: 12px; background: ${colors[i]}"></div>
+//                 <span>${cat.category}</span>
+//             </div>
+//             <div class="text-end">
+//                 <strong>${formatCurrency(cat.amount)}</strong>
+//                 <div class="small text-muted">${pct}%</div>
+//             </div>
+//         </div>`;
+//     }).join('');
+// }
+
+function updateCategoryChart(data) {
+    const ctx = document.getElementById('categoryChart').getContext('2d');
+    if (categoryChart) categoryChart.destroy();
+    const labels = data.map(d => d.category);
+    const values = data.map(d => d.amount); 
+    categoryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: labels, datasets: [{ data: values, backgroundColor: colors.slice(0, data.length), borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: c => `$${c.raw}` } }, legend: { position: 'right', labels: { boxWidth: 12 } } } }
+    });
 }
 
 function updateTopStores(stores, total) {

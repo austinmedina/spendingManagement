@@ -124,7 +124,7 @@ async function loadAccounts() {
                 <strong>${a.name}</strong>
             </td>
             <td><span class="badge bg-${typeColors[a.type] || 'secondary'}">${a.type.charAt(0).toUpperCase() + a.type.slice(1)}</span></td>
-            <td>${a.person}</td>
+            <td>${a.full_name}</td>
             <td class="text-end">
                 <div class="btn-group btn-group-sm">
                     <button class="btn btn-outline-primary" onclick="editAccount(${a.id}, '${a.name}', '${a.type}')"><i class="bi bi-pencil"></i></button>

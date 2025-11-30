@@ -3,8 +3,8 @@ Transaction routes - Upload, manual entry, search
 """
 
 from flask import Blueprint, render_template, request, jsonify, send_from_directory
-from auth import login_required, get_current_user
-from models import TransactionModel, SplitModel
+from auth import login_required, get_current_user, get_user_by_id
+from models import TransactionModel, SplitModel, AccountModel
 from services.azure_service import azure_service
 from services.notification_service import notification_service
 from utils.helpers import (
@@ -22,12 +22,12 @@ transactions_bp = Blueprint('transactions', __name__)
 def upload_page():
     """Receipt upload page"""
     user = get_current_user()
-    person = user['full_name']
-    groups = get_person_groups(person)
+    person = {"id":user["id"], "full_name":user["full_name"]}
+    groups = get_person_groups(person["id"])
     
     from models import AccountModel
     account_model = AccountModel()
-    accounts = account_model.get_by_person(person)
+    accounts = account_model.get_by_person(person["id"])
     
     return render_template(
         'upload.html',
@@ -42,18 +42,27 @@ def upload_page():
 def manual_page():
     """Manual entry page"""
     user = get_current_user()
-    person = user['full_name']
-    groups = get_person_groups(person)
+    person = {"id":user["id"], "full_name":user["full_name"]}
+    groups = get_person_groups(person['id'])
     
-    from models import AccountModel
     account_model = AccountModel()
-    accounts = account_model.get_by_person(person)
+    accounts = account_model.get_by_person(person["id"])
     
+    groupMembers = []
+    for group in groups:
+        modifiedGroup = group
+        names = []
+        for id in group["members"].split(','):
+            names.append(get_user_by_id(id)["full_name"])
+        
+        modifiedGroup["names"] = names
+        groupMembers.append(modifiedGroup)
+
     return render_template(
         'manual.html',
         categories=Config.EXPENSE_CATEGORIES,
         income_categories=Config.INCOME_CATEGORIES,
-        groups=groups,
+        groups=groupMembers,
         accounts=accounts,
         current_person=person
     )
@@ -63,8 +72,8 @@ def manual_page():
 def search_page():
     """Transaction search page"""
     user = get_current_user()
-    person = user['full_name']
-    groups = get_person_groups(person)
+    person = {"id":user["id"], "full_name":user["full_name"]}
+    groups = get_person_groups(person["id"])
     
     return render_template(
         'search.html',
@@ -123,13 +132,12 @@ def upload_receipt():
 def save_items():
     """Save receipt items as transactions"""
     user = get_current_user()
-    person = user['full_name']
     
     data = request.json
     items = data.get('items', [])
     store = data.get('store', 'Unknown')
     date = data.get('date')
-    bank_account = data.get('bank_account', '')
+    bank_account_id = data.get('bank_account_id', '')
     receipt_image = data.get('receipt_image', '')
     group_id = data.get('group_id', '')
     splits = data.get('splits', [])
@@ -148,8 +156,8 @@ def save_items():
             'store': store,
             'date': date,
             'price': item.get('price', 0),
-            'person': person,
-            'bank_account': bank_account,
+            'userID': user["id"],
+            'bank_account_id': bank_account_id,
             'type': 'expense',
             'receipt_image': receipt_image,
             'group_id': group_id,
@@ -161,14 +169,14 @@ def save_items():
         for split in splits:
             split_model.create({
                 'receipt_group_id': receipt_group_id,
-                'person': split['person'],
+                'userID': split["id"],
                 'amount': split['amount'],
                 'percentage': split.get('percentage', 0)
             })
     
     # Check for large transaction alert
     total = sum(float(item.get('price', 0)) for item in items)
-    notification_service.check_large_transaction_alert(person, total, store)
+    notification_service.check_large_transaction_alert(user["id"], total, store)
     
     return jsonify({'success': True, 'saved': len(items)})
 
@@ -177,9 +185,8 @@ def save_items():
 def manual_entry():
     """Manual transaction entry"""
     user = get_current_user()
-    person = user['full_name']
     
-    data = request.json
+    data = request.json 
     group_id = data.get('group_id', '')
     receipt_group_id = generate_unique_id() if group_id else ''
     
@@ -193,8 +200,8 @@ def manual_entry():
         'store': data.get('store', 'Unknown'),
         'date': data.get('date'),
         'price': data.get('price', 0),
-        'person': person,
-        'bank_account': data.get('bank_account', ''),
+        'userID': user["id"],
+        'bank_account_id': data.get('bank_account_id', ''),
         'type': data.get('type', 'expense'),
         'receipt_image': '',
         'group_id': group_id,
@@ -207,7 +214,7 @@ def manual_entry():
         for split in splits:
             split_model.create({
                 'receipt_group_id': receipt_group_id,
-                'person': split['person'],
+                'userID': split["personId"],
                 'amount': split['amount'],
                 'percentage': split.get('percentage', 0)
             })
@@ -215,9 +222,9 @@ def manual_entry():
     # Check for alerts
     if data.get('type') == 'expense':
         notification_service.check_large_transaction_alert(
-            person, 
+            user["id"], 
             float(data.get('price', 0)), 
             data.get('item_name', 'Unknown')
         )
-    
+        
     return jsonify({'success': True, 'transaction': transaction})

@@ -4,7 +4,7 @@ Comprehensive REST API for frontend communication
 """
 
 from flask import Blueprint, jsonify, request
-from auth import login_required, get_current_user, admin_required
+from auth import login_required, get_current_user, admin_required, get_user_by_id, get_user_by_full_name
 from models import (
     TransactionModel, BudgetModel, RecurringModel, 
     AccountModel, GroupModel, SplitModel, NotificationModel
@@ -13,6 +13,8 @@ from services.notification_service import notification_service
 from services.analytics_service import analytics_service
 from utils.helpers import filter_by_person_access, get_person_groups
 from utils.decorators import api_response
+from datetime import datetime, timedelta
+import json
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -20,10 +22,10 @@ api_bp = Blueprint('api', __name__, url_prefix='/api')
 
 @api_bp.route('/dashboard-data')
 @login_required
-@api_response
+# @api_response
 def get_dashboard_data():
     """Get basic dashboard data (legacy endpoint)"""
-    person = request.args.get('person')
+    user = get_current_user()
     view_mode = request.args.get('view', 'personal')
     group_id = request.args.get('group_id', '')
     
@@ -35,10 +37,11 @@ def get_dashboard_data():
     if view_mode == 'group' and group_id:
         transactions = [t for t in transaction_model.read_all() if t.get('group_id') == group_id]
     else:
-        transactions = filter_by_person_access(transaction_model.read_all(), person)
+        transactionAll = transaction_model.read_all()
+        transactions = filter_by_person_access(transactionAll, user["id"])
+        print("Got transactions")
     
     # Calculate basic stats
-    from datetime import datetime, timedelta
     now = datetime.now()
     current_month = now.strftime('%Y-%m')
     
@@ -57,14 +60,13 @@ def get_dashboard_data():
     month_expenses = 0
     
     splits = split_model.read_all()
-    
     for t in transactions:
         # Handle splits
         receipt_group_id = t.get('receipt_group_id', '')
         if receipt_group_id:
             t_splits = [s for s in splits if s['receipt_group_id'] == receipt_group_id]
             if t_splits:
-                person_split = next((s for s in t_splits if s['person'] == person), None)
+                person_split = next((s for s in t_splits if s['userID'] == user["id"]), None)
                 if not person_split:
                     continue
                 total_receipt = sum(float(tr.get('price', 0)) for tr in transactions 
@@ -77,7 +79,7 @@ def get_dashboard_data():
             else:
                 price = float(t.get('price', 0))
         else:
-            if t.get('person') != person:
+            if t.get('userID') != user["id"]:
                 continue
             price = float(t.get('price', 0))
         
@@ -98,13 +100,12 @@ def get_dashboard_data():
                 month_expenses += price
             cat = t.get('category', 'Other')
             category_spending[cat] = category_spending.get(cat, 0) + price
-            acc = t.get('bank_account', 'Unknown')
+            acc = t.get('bank_account_id', 'Unknown')
             account_spending[acc] = account_spending.get(acc, 0) + price
     
     sorted_months = sorted(monthly_spending.keys())
-    
     # Budget status
-    budgets = budget_model.get_by_person(person)
+    budgets = budget_model.get_by_person(user["id"])
     budget_status = []
     for b in budgets:
         spent = category_spending.get(b['category'], 0)
@@ -116,6 +117,8 @@ def get_dashboard_data():
             'remaining': limit - spent,
             'percentage': min((spent / limit * 100) if limit else 0, 100)
         })
+
+    
     
     return {
         'monthly_labels': sorted_months,
@@ -135,14 +138,14 @@ def get_dashboard_data():
 
 @api_bp.route('/dashboard-enhanced')
 @login_required
-@api_response
+# @api_response
 def get_dashboard_enhanced():
     """Get enhanced dashboard data with analytics"""
-    person = request.args.get('person')
+    person = json.loads(request.args.get("person"))
     view = request.args.get('view', 'personal')
     group_id = request.args.get('group_id', '')
     
-    data = analytics_service.get_enhanced_dashboard_data(person, group_id)
+    data = analytics_service.get_enhanced_dashboard_data(person["id"], group_id)
     return data
 
 # ==================== Transactions ====================
@@ -153,21 +156,31 @@ def get_dashboard_enhanced():
 def get_transactions():
     """Get filtered transactions"""
     user = get_current_user()
-    person = user['full_name']
     
     transaction_model = TransactionModel()
-    transactions = filter_by_person_access(transaction_model.read_all(), person)
-    
+    account_model = AccountModel()
+    transactions = filter_by_person_access(transaction_model.read_all(), user["id"])
+    for t in transactions:
+        if t["receipt_group_id"]:
+            splits = SplitModel().get_by_receipt_group(t["receipt_group_id"])
+            for split in splits:
+                if split["userID"] == user["id"]:
+                    t["price"] = split["amount"]
+            
     # Apply filters
     filters = {}
-    for key in ['category', 'store', 'bank_account', 'start_date', 'end_date', 'q', 'type', 'person']:
+    for key in ['category', 'store', 'bank_account_id', 'start_date', 'end_date', 'q', 'type', 'personID']:
         if request.args.get(key):
             filters[key] = request.args.get(key)
     
     if filters:
         transactions = transaction_model.filter(filters)
-        transactions = filter_by_person_access(transactions, person)
-    
+        transactions = filter_by_person_access(transactions, user["id"])
+    for t in transactions:
+        name = get_user_by_id(t['userID'])
+        account = account_model.find_by_id(t['bank_account_id'])
+        t['account_name'] = account['name'] if account else 'Unknown'
+        t['full_name'] = name['full_name'] if name else 'Unknown'
     return transactions
 
 @api_bp.route('/transaction/<int:tid>')
@@ -199,8 +212,7 @@ def get_transaction(tid):
 def get_notifications():
     """Get user notifications"""
     user = get_current_user()
-    person = user['full_name']
-    notifications = notification_service.get_user_notifications(person)
+    notifications = notification_service.get_user_notifications(user["id"])
     return notifications
 
 @api_bp.route('/notifications/<int:notification_id>/read', methods=['POST'])
@@ -217,8 +229,7 @@ def mark_notification_read(notification_id):
 def mark_all_notifications_read():
     """Mark all notifications as read"""
     user = get_current_user()
-    person = user['full_name']
-    count = notification_service.mark_all_read(person)
+    count = notification_service.mark_all_read(user["id"])
     return {'success': True, 'count': count}
 
 # ==================== Categories & Persons ====================
@@ -236,12 +247,30 @@ def get_categories():
 def get_persons():
     """Get all persons"""
     user = get_current_user()
-    person = user['full_name']
-    groups = get_person_groups(person)
-    all_people = set([person])
+    
+    # store final results here
+    all_people = []
+    seen_ids = set()
+    
+    # helper to add people without duplicates
+    def add_person(p):
+        if p["id"] not in seen_ids:
+            all_people.append(p)
+            seen_ids.add(p["id"])
+    
+    # add current user
+    add_person({"id": user["id"], "full_name": user["full_name"]})
+    
+    groups = get_person_groups(user["id"])
+    
     for g in groups:
-        all_people.update(g['members'].split(','))
-    return sorted(all_people)
+        for member_id in g["members"].split(","):
+            member = get_user_by_id(member_id)
+            if member:
+                add_person({"id": member["id"], "full_name": member["full_name"]})
+    
+    # sort however you want (e.g. by id)
+    return sorted(all_people, key=lambda p: p["id"])
 
 # ==================== Accounts ====================
 
@@ -251,9 +280,13 @@ def get_persons():
 def get_accounts():
     """Get user accounts"""
     user = get_current_user()
-    person = user['full_name']
     account_model = AccountModel()
-    accounts = account_model.get_by_person(person)
+    accounts = account_model.get_by_person(user["id"])
+
+    for a in accounts:
+        user = get_user_by_id(a['userID'])
+        a['full_name'] = user['full_name'] if user else 'Unknown'
+
     return accounts
 
 @api_bp.route('/accounts', methods=['POST'])
@@ -262,10 +295,9 @@ def get_accounts():
 def create_account():
     """Create new account"""
     user = get_current_user()
-    person = user['full_name']
     
     data = request.json
-    data['person'] = person
+    data['userID'] = user["id"]
     
     account_model = AccountModel()
     account = account_model.create(data)
@@ -298,9 +330,8 @@ def delete_account(aid):
 def get_budgets():
     """Get user budgets"""
     user = get_current_user()
-    person = user['full_name']
     budget_model = BudgetModel()
-    budgets = budget_model.get_by_person(person)
+    budgets = budget_model.get_by_person(user["id"])
     return budgets
 
 @api_bp.route('/budgets', methods=['POST'])
@@ -309,10 +340,10 @@ def get_budgets():
 def create_budget():
     """Create new budget"""
     user = get_current_user()
-    person = user['full_name']
     
     data = request.json
-    data['person'] = person
+    data['userID'] = user["id"]
+    data['start_date'] = datetime.now().strftime('%Y-%m-%d')
     
     budget_model = BudgetModel()
     budget = budget_model.create(data)
@@ -345,9 +376,8 @@ def delete_budget(bid):
 def get_recurring():
     """Get recurring transactions"""
     user = get_current_user()
-    person = user['full_name']
     recurring_model = RecurringModel()
-    recurring = filter_by_person_access(recurring_model.read_all(), person)
+    recurring = filter_by_person_access(recurring_model.read_all(), user["id"])
     return recurring
 
 @api_bp.route('/recurring', methods=['POST'])
@@ -390,9 +420,19 @@ def toggle_recurring(rid):
 def get_groups():
     """Get user groups"""
     user = get_current_user()
-    person = user['full_name']
+    person = user['id']
     groups = get_person_groups(person)
-    return groups
+    groupMembers = []
+    for group in groups:
+        modifiedGroup = group
+        names = []
+        for id in group["members"].split(','):
+            names.append(get_user_by_id(id)["full_name"])
+        
+        modifiedGroup["names"] = names
+        groupMembers.append(modifiedGroup)
+            
+    return groupMembers
 
 @api_bp.route('/groups', methods=['POST'])
 @login_required
@@ -401,7 +441,7 @@ def create_group():
     """Create new group"""
     data = request.json
     user = get_current_user()
-    person = user['full_name']
+    person = user["id"]
     
     members = data.get('members', [])
     if person not in members:
@@ -418,6 +458,18 @@ def create_group():
 def update_group(gid):
     """Update group"""
     data = request.json
+    user = get_current_user()
+    person = user["id"]
+
+    members = []
+    membersNames = data.get('members', [])
+    for name in membersNames:
+        members.append(get_user_by_full_name(name)["id"])
+    
+    if person not in members:
+        members.append(person)
+    data['members'] = ','.join(members)
+
     group_model = GroupModel()
     success = group_model.update_by_id(gid, data)
     return {'success': success}

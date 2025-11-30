@@ -4,3 +4,5 @@ uploads/*
 receipts/*
 csv/*
 __pycache__/
+Finances*
+parsing.ipynb

@@ -30,6 +30,6 @@ def requires_person_access(f):
             return jsonify({'error': 'Unauthorized'}), 401
         
         # Add person to kwargs
-        kwargs['current_person'] = user['full_name']
+        kwargs['current_person'] = {"id": user['id'], "full_name": user['full_name']}
         return f(*args, **kwargs)
     return decorated_function

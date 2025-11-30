@@ -70,15 +70,16 @@ class Config:
     
     CSV_HEADERS = {
         'transactions': ['id', 'item_name', 'category', 'store', 'date', 'price', 
-                        'person', 'bank_account', 'type', 'receipt_image', 
+                        'userID', 'bank_account_id', 'type', 'receipt_image', 
                         'group_id', 'receipt_group_id'],
-        'budgets': ['id', 'category', 'amount', 'period', 'start_date', 'person'],
-        'recurring': ['id', 'item_name', 'category', 'store', 'price', 'person', 
-                     'bank_account', 'type', 'frequency', 'next_date', 'active', 'group_id'],
-        'accounts': ['id', 'name', 'type', 'person'],
+        'budgets': ['id', 'category', 'amount', 'period', 'start_date', 'userID'],
+        'recurring': ['id', 'item_name', 'category', 'store', 'price', 'userID', 
+                     'bank_account_id', 'type', 'frequency', 'next_date', 'active', 'group_id'],
+        'accounts': ['id', 'name', 'type', 'userID'],
         'groups': ['id', 'name', 'members'],
-        'splits': ['id', 'receipt_group_id', 'person', 'amount', 'percentage'],
-        'notifications': ['id', 'user', 'type', 'title', 'message', 'date', 'read', 'data']
+        'splits': ['id', 'receipt_group_id', 'userID', 'amount', 'percentage'],
+        'notifications': ['id', 'userID', 'type', 'title', 'message', 'date', 'read', 'data'],
+        'reset_code': ['code', 'userID', 'expires', 'used']
     }
 
 class DevelopmentConfig(Config):

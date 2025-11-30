@@ -14,8 +14,8 @@ recurring_bp = Blueprint('recurring', __name__)
 def recurring_page():
     """Recurring transactions page"""
     user = get_current_user()
-    person = user['full_name']
-    groups = get_person_groups(person)
+    person = {"id":user["id"], "full_name":user["full_name"]}
+    groups = get_person_groups(person["id"])
     
     from models import AccountModel
     account_model = AccountModel()

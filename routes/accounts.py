@@ -12,7 +12,7 @@ accounts_bp = Blueprint('accounts', __name__)
 def accounts_page():
     """Account management page"""
     user = get_current_user()
-    person = user['full_name']
+    person = {"id":user["id"], "full_name":user["full_name"]}
     
     return render_template(
         'accounts.html',
