@@ -27,8 +27,8 @@ def process_recurring_transactions():
                 'store': item['store'],
                 'date': next_date.strftime('%Y-%m-%d'),
                 'price': item['price'],
-                'person': item['person'],
-                'bank_account_id': item['bank_account_id'],
+                'user_id': item.get('user_id'),
+                'bank_account_id': item.get('bank_account_id'),
                 'type': item['type'],
                 'receipt_image': '',
                 'group_id': item.get('group_id', '')

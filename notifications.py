@@ -77,7 +77,7 @@ def check_budget_alerts(user_id, username, email, transactions, budgets):
     
     alerts = []
     for budget in budgets:
-        if budget.get('person') != username:
+        if str(budget.get('user_id')) != str(user_id):
             continue
         
         category = budget['category']
@@ -327,13 +327,13 @@ def run_notification_checks(users, transactions, budgets, recurring_items, custo
             continue
         
         # Budget alerts
-        user_transactions = [t for t in transactions if t.get('person') == username]
-        user_budgets = [b for b in budgets if b.get('person') == username]
+        user_transactions = [t for t in transactions if str(t.get('user_id')) == str(user_id)]
+        user_budgets = [b for b in budgets if str(b.get('user_id')) == str(user_id)]
         if check_budget_alerts(user_id, username, email, user_transactions, user_budgets):
             results['budget_alerts'] += 1
         
         # Recurring charge reminders
-        user_recurring = [r for r in recurring_items if r.get('person') == username]
+        user_recurring = [r for r in recurring_items if str(r.get('user_id')) == str(user_id)]
         if check_recurring_reminders(user_id, username, email, user_recurring):
             results['recurring_reminders'] += 1
         

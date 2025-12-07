@@ -19,7 +19,7 @@ def recurring_page():
     
     from models import AccountModel
     account_model = AccountModel()
-    accounts = account_model.get_by_person(person)
+    accounts = account_model.get_by_user(person["id"])
     
     return render_template(
         'recurring.html',

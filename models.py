@@ -104,7 +104,7 @@ class TransactionModel(CSVModel):
             'store': data.get('store', ''),
             'date': data.get('date'),
             'price': str(data.get('price', 0)),
-            'userID': data.get('userID', ''),
+            'user_id': data.get('user_id', ''),
             'bank_account_id': data.get('bank_account_id', ''),
             'type': data.get('type', 'expense'),
             'receipt_image': data.get('receipt_image', ''),
@@ -126,9 +126,9 @@ class TransactionModel(CSVModel):
             transactions = [t for t in transactions 
                           if filters['store'].lower() in t['store'].lower()]
         
-        if filters.get('personID'):
+        if filters.get('user_id'):
             transactions = [t for t in transactions 
-                          if t['userID'].lower() == filters['personID'].lower()]
+                          if str(t.get('user_id','')).lower() == str(filters['user_id']).lower()]
         
         if filters.get('bank_account_id'):
             transactions = [t for t in transactions 
@@ -168,15 +168,15 @@ class BudgetModel(CSVModel):
             'amount': str(data.get('amount')),
             'period': data.get('period', 'monthly'),
             'start_date': data.get('start_date'),
-            'userID': data.get('userID')
+            'user_id': data.get('user_id')
         }
         self.write_row(budget)
         return budget
     
-    def get_by_person(self, personID: str) -> List[Dict]:
-        """Get budgets for a specific person"""
+    def get_by_user(self, user_id: str) -> List[Dict]:
+        """Get budgets for a specific user"""
         budgets = self.read_all()
-        return [b for b in budgets if b.get('userID') == personID]
+        return [b for b in budgets if b.get('user_id') == user_id]
 
 
 class RecurringModel(CSVModel):
@@ -193,7 +193,7 @@ class RecurringModel(CSVModel):
             'category': data.get('category', 'Other'),
             'store': data.get('store', ''),
             'price': str(data.get('price')),
-            'person': data.get('person', ''),
+            'user_id': data.get('user_id', ''),
             'bank_account_id': data.get('bank_account_id', ''),
             'type': data.get('type', 'expense'),
             'frequency': data.get('frequency', 'monthly'),
@@ -232,15 +232,15 @@ class AccountModel(CSVModel):
             'id': str(self.get_next_id()),
             'name': data.get('name'),
             'type': data.get('type', 'checking'),
-            'userID': data.get('userID')
+            'user_id': data.get('user_id')
         }
         self.write_row(account)
         return account
     
-    def get_by_person(self, personID: str) -> List[Dict]:
-        """Get accounts for a specific person"""
+    def get_by_user(self, user_id: str) -> List[Dict]:
+        """Get accounts for a specific user"""
         accounts = self.read_all()
-        return [a for a in accounts if a.get('userID') == personID]
+        return [a for a in accounts if a.get('user_id') == user_id]
 
 
 class GroupModel(CSVModel):
@@ -263,10 +263,10 @@ class GroupModel(CSVModel):
         self.write_row(group)
         return group
     
-    def get_by_member(self, personID: str) -> List[Dict]:
-        """Get all groups a person is a member of"""
+    def get_by_member(self, user_id: str) -> List[Dict]:
+        """Get all groups a user is a member of"""
         groups = self.read_all()
-        return [g for g in groups if personID in g['members'].split(',')]
+        return [g for g in groups if user_id in g['members'].split(',')]
     
     def get_members(self, group_id: int) -> List[str]:
         """Get members of a group"""
@@ -287,7 +287,7 @@ class SplitModel(CSVModel):
         split = {
             'id': str(self.get_next_id()),
             'receipt_group_id': data.get('receipt_group_id'),
-            'userID': data.get('userID'),
+            'user_id': data.get('user_id'),
             'amount': str(data.get('amount')),
             'percentage': str(data.get('percentage', 0))
         }
@@ -310,7 +310,7 @@ class NotificationModel(CSVModel):
         """Create new notification"""
         notification = {
             'id': str(self.get_next_id()),
-            'user': data.get('user'),
+            'user_id': data.get('user_id'),
             'type': data.get('type', 'info'),
             'title': data.get('title'),
             'message': data.get('message'),
@@ -321,10 +321,10 @@ class NotificationModel(CSVModel):
         self.write_row(notification)
         return notification
     
-    def get_by_user(self, userID: str, unread_only: bool = False) -> List[Dict]:
+    def get_by_user(self, user_id: str, unread_only: bool = False) -> List[Dict]:
         """Get notifications for a user"""
         notifications = self.read_all()
-        user_notifications = [n for n in notifications if n['userID'] == userID]
+        user_notifications = [n for n in notifications if n['user_id'] == user_id]
         
         if unread_only:
             user_notifications = [n for n in user_notifications if n['read'] == 'false']
@@ -342,7 +342,7 @@ class NotificationModel(CSVModel):
         notifications = self.read_all()
         count = 0
         for notification in notifications:
-            if notification['user'] == user and notification['read'] == 'false':
+            if notification.get('user_id') == user and notification['read'] == 'false':
                 notification['read'] = 'true'
                 count += 1
         if count > 0:

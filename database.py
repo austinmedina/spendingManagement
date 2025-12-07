@@ -44,10 +44,13 @@ def init_database():
                     store VARCHAR(255),
                     date DATE NOT NULL,
                     price DECIMAL(10, 2) NOT NULL,
-                    person VARCHAR(100),
+                    user_id INTEGER,
                     bank_account_id VARCHAR(100),
                     type VARCHAR(20) DEFAULT 'expense',
                     receipt_image VARCHAR(255),
+                    receipt_json JSONB,
+                    group_id INTEGER,
+                    receipt_group_id VARCHAR(255),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 CREATE INDEX IF NOT EXISTS idx_trans_date ON transactions(date);
@@ -63,6 +66,7 @@ def init_database():
                     amount DECIMAL(10, 2) NOT NULL,
                     period VARCHAR(20) DEFAULT 'monthly',
                     start_date DATE,
+                    user_id INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             ''')
@@ -75,7 +79,7 @@ def init_database():
                     category VARCHAR(100) DEFAULT 'Other',
                     store VARCHAR(255),
                     price DECIMAL(10, 2) NOT NULL,
-                    person VARCHAR(100),
+                    user_id INTEGER,
                     bank_account_id VARCHAR(100),
                     type VARCHAR(20) DEFAULT 'expense',
                     frequency VARCHAR(20) DEFAULT 'monthly',
@@ -92,7 +96,7 @@ def read_all_transactions():
             cur.execute('''
                 SELECT id, item_name, category, store, 
                        TO_CHAR(date, 'YYYY-MM-DD') as date,
-                       price::text, person, bank_account_id, type, receipt_image
+                       price::text, user_id, bank_account_id, type, receipt_image, receipt_json, group_id, receipt_group_id
                 FROM transactions ORDER BY date DESC
             ''')
             return cur.fetchall()
@@ -101,23 +105,26 @@ def write_transaction(t):
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute('''
-                INSERT INTO transactions (item_name, category, store, date, price, person, bank_account_id, type, receipt_image)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
-            ''', (t['item_name'], t.get('category', 'Other'), t.get('store', ''), t['date'],
-                  t['price'], t.get('person', ''), t.get('bank_account_id', ''), t.get('type', 'expense'), t.get('receipt_image', '')))
+                INSERT INTO transactions (item_name, category, store, date, price, user_id, bank_account_id, type, receipt_image, receipt_json, group_id, receipt_group_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            ''', (
+                t['item_name'], t.get('category', 'Other'), t.get('store', ''), t['date'],
+                t['price'], t.get('user_id'), t.get('bank_account_id', ''), t.get('type', 'expense'),
+                t.get('receipt_image', ''), t.get('receipt_json'), t.get('group_id'), t.get('receipt_group_id')
+            ))
             return cur.fetchone()[0]
 
 def get_transactions_filtered(filters):
     query = '''SELECT id, item_name, category, store, TO_CHAR(date, 'YYYY-MM-DD') as date,
-               price::text, person, bank_account_id, type, receipt_image FROM transactions WHERE 1=1'''
+               price::text, user_id, bank_account_id, type, receipt_image, receipt_json, group_id, receipt_group_id FROM transactions WHERE 1=1'''
     params = []
     
     if filters.get('category'):
         query += ' AND LOWER(category) = LOWER(%s)'; params.append(filters['category'])
     if filters.get('store'):
         query += ' AND LOWER(store) LIKE LOWER(%s)'; params.append(f"%{filters['store']}%")
-    if filters.get('person'):
-        query += ' AND LOWER(person) = LOWER(%s)'; params.append(filters['person'])
+    if filters.get('user_id'):
+        query += ' AND user_id = %s'; params.append(filters['user_id'])
     if filters.get('bank_account_id'):
         query += ' AND LOWER(bank_account_id) = LOWER(%s)'; params.append(filters['bank_account_id'])
     if filters.get('start_date'):
@@ -140,14 +147,14 @@ def get_transactions_filtered(filters):
 def read_all_budgets():
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute('SELECT id, category, amount::text, period, TO_CHAR(start_date, \'YYYY-MM-DD\') as start_date FROM budgets')
+            cur.execute('SELECT id, category, amount::text, period, TO_CHAR(start_date, \'YYYY-MM-DD\') as start_date, user_id FROM budgets')
             return cur.fetchall()
 
 def write_budget(b):
     with get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute('INSERT INTO budgets (category, amount, period, start_date) VALUES (%s, %s, %s, %s) RETURNING id',
-                       (b['category'], b['amount'], b.get('period', 'monthly'), b.get('start_date')))
+            cur.execute('INSERT INTO budgets (category, amount, period, start_date, user_id) VALUES (%s, %s, %s, %s, %s) RETURNING id',
+                       (b['category'], b['amount'], b.get('period', 'monthly'), b.get('start_date'), b.get('user_id')))
             return cur.fetchone()[0]
 
 def update_budget(bid, b):
@@ -165,7 +172,7 @@ def delete_budget(bid):
 def read_all_recurring():
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute('''SELECT id, item_name, category, store, price::text, person, bank_account_id,
+            cur.execute('''SELECT id, item_name, category, store, price::text, user_id, bank_account_id,
                           type, frequency, TO_CHAR(next_date, 'YYYY-MM-DD') as next_date,
                           CASE WHEN active THEN 'true' ELSE 'false' END as active FROM recurring''')
             return cur.fetchall()
@@ -173,11 +180,11 @@ def read_all_recurring():
 def write_recurring(r):
     with get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute('''INSERT INTO recurring (item_name, category, store, price, person, bank_account_id, type, frequency, next_date, active)
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE) RETURNING id''',
-                       (r['item_name'], r.get('category', 'Other'), r.get('store', ''), r['price'],
-                        r.get('person', ''), r.get('bank_account_id', ''), r.get('type', 'expense'), r.get('frequency', 'monthly'), r['next_date']))
-            return cur.fetchone()[0]
+                        cur.execute('''INSERT INTO recurring (item_name, category, store, price, user_id, bank_account_id, type, frequency, next_date, active)
+                                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE) RETURNING id''',
+                                             (r['item_name'], r.get('category', 'Other'), r.get('store', ''), r['price'],
+                                                r.get('user_id'), r.get('bank_account_id', ''), r.get('type', 'expense'), r.get('frequency', 'monthly'), r['next_date']))
+                        return cur.fetchone()[0]
 
 def update_recurring_next_date(rid, next_date):
     with get_db() as conn:
@@ -195,7 +202,7 @@ def delete_recurring(rid):
             cur.execute('DELETE FROM recurring WHERE id=%s', (rid,))
 
 def get_unique_values(column):
-    valid = ['category', 'bank_account_id', 'person', 'store']
+    valid = ['category', 'bank_account_id', 'user_id', 'store']
     if column not in valid:
         raise ValueError(f"Invalid column: {column}")
     with get_db() as conn:

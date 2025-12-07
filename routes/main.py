@@ -126,8 +126,8 @@ def dashboard():
     process_recurring_transactions()
     
     # Check for alerts and reminders
-    notification_service.check_budget_alerts(person)
-    notification_service.check_recurring_reminders(person)
+    notification_service.check_budget_alerts(person['id'])
+    notification_service.check_recurring_reminders(person['id'])
     
     # Get user's groups
     groups = get_person_groups(person["id"])

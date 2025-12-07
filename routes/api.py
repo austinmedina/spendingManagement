@@ -66,7 +66,7 @@ def get_dashboard_data():
         if receipt_group_id:
             t_splits = [s for s in splits if s['receipt_group_id'] == receipt_group_id]
             if t_splits:
-                person_split = next((s for s in t_splits if s['userID'] == user["id"]), None)
+                person_split = next((s for s in t_splits if s['user_id'] == user["id"]), None)
                 if not person_split:
                     continue
                 total_receipt = sum(float(tr.get('price', 0)) for tr in transactions 
@@ -79,7 +79,7 @@ def get_dashboard_data():
             else:
                 price = float(t.get('price', 0))
         else:
-            if t.get('userID') != user["id"]:
+            if t.get('user_id') != user["id"]:
                 continue
             price = float(t.get('price', 0))
         
@@ -105,7 +105,7 @@ def get_dashboard_data():
     
     sorted_months = sorted(monthly_spending.keys())
     # Budget status
-    budgets = budget_model.get_by_person(user["id"])
+    budgets = budget_model.get_by_user(user["id"])
     budget_status = []
     for b in budgets:
         spent = category_spending.get(b['category'], 0)
@@ -164,12 +164,12 @@ def get_transactions():
         if t["receipt_group_id"]:
             splits = SplitModel().get_by_receipt_group(t["receipt_group_id"])
             for split in splits:
-                if split["userID"] == user["id"]:
+                if split["user_id"] == user["id"]:
                     t["price"] = split["amount"]
             
     # Apply filters
     filters = {}
-    for key in ['category', 'store', 'bank_account_id', 'start_date', 'end_date', 'q', 'type', 'personID']:
+    for key in ['category', 'store', 'bank_account_id', 'start_date', 'end_date', 'q', 'type', 'user_id']:
         if request.args.get(key):
             filters[key] = request.args.get(key)
     
@@ -177,7 +177,7 @@ def get_transactions():
         transactions = transaction_model.filter(filters)
         transactions = filter_by_person_access(transactions, user["id"])
     for t in transactions:
-        name = get_user_by_id(t['userID'])
+        name = get_user_by_id(t['user_id'])
         account = account_model.find_by_id(t['bank_account_id'])
         t['account_name'] = account['name'] if account else 'Unknown'
         t['full_name'] = name['full_name'] if name else 'Unknown'
@@ -281,10 +281,10 @@ def get_accounts():
     """Get user accounts"""
     user = get_current_user()
     account_model = AccountModel()
-    accounts = account_model.get_by_person(user["id"])
+    accounts = account_model.get_by_user(user["id"])
 
     for a in accounts:
-        user = get_user_by_id(a['userID'])
+        user = get_user_by_id(a['user_id'])
         a['full_name'] = user['full_name'] if user else 'Unknown'
 
     return accounts
@@ -297,7 +297,7 @@ def create_account():
     user = get_current_user()
     
     data = request.json
-    data['userID'] = user["id"]
+    data['user_id'] = user["id"]
     
     account_model = AccountModel()
     account = account_model.create(data)
@@ -331,7 +331,7 @@ def get_budgets():
     """Get user budgets"""
     user = get_current_user()
     budget_model = BudgetModel()
-    budgets = budget_model.get_by_person(user["id"])
+    budgets = budget_model.get_by_user(user["id"])
     return budgets
 
 @api_bp.route('/budgets', methods=['POST'])
@@ -342,7 +342,7 @@ def create_budget():
     user = get_current_user()
     
     data = request.json
-    data['userID'] = user["id"]
+    data['user_id'] = user["id"]
     data['start_date'] = datetime.now().strftime('%Y-%m-%d')
     
     budget_model = BudgetModel()
@@ -386,9 +386,9 @@ def get_recurring():
 def create_recurring():
     """Create recurring transaction"""
     data = request.json
-    if not data.get('person'):
+    if not data.get('user_id'):
         user = get_current_user()
-        data['person'] = user['full_name']
+        data['user_id'] = user['id']
     
     recurring_model = RecurringModel()
     recurring = recurring_model.create(data)

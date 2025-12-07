@@ -27,27 +27,27 @@ def format_currency(amount: float) -> str:
     """Format amount as currency string"""
     return f"${amount:,.2f}"
 
-def get_person_groups(personID: str):
+def get_person_groups(person_id: str):
     """Get all groups a person belongs to"""
     from models import GroupModel
     group_model = GroupModel()
-    return group_model.get_by_member(personID)
+    return group_model.get_by_member(person_id)
 
-def filter_by_person_access(items: list, personID: str) -> list:
+def filter_by_person_access(items: list, person_id: str) -> list:
     """Filter items to only show what the current person should see"""
     from models import GroupModel
 
-    if not personID:
+    if not person_id:
         return []
     
     group_model = GroupModel()
-    person_groups = group_model.get_by_member(personID)
+    person_groups = group_model.get_by_member(person_id)
     group_ids = [g['id'] for g in person_groups]
 
     filtered = []
     for item in items:
         # Show if person owns it or is in the group
-        if item.get('person') == personID or \
+        if item.get('user_id') == person_id or \
            item.get('group_id') in group_ids or \
            not item.get('group_id'):
             filtered.append(item)
@@ -65,7 +65,7 @@ def calculate_splits(total_amount: float, members: list) -> list:
     splits = []
     for member in members:
         splits.append({
-            'person': member,
+            'user_id': member,
             'amount': round(amount_per_person, 2),
             'percentage': round(percentage, 2)
         })

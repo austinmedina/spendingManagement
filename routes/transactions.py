@@ -27,7 +27,7 @@ def upload_page():
     
     from models import AccountModel
     account_model = AccountModel()
-    accounts = account_model.get_by_person(person["id"])
+    accounts = account_model.get_by_user(person["id"])
     
     return render_template(
         'upload.html',
@@ -46,7 +46,7 @@ def manual_page():
     groups = get_person_groups(person['id'])
     
     account_model = AccountModel()
-    accounts = account_model.get_by_person(person["id"])
+    accounts = account_model.get_by_user(person["id"])
     
     groupMembers = []
     for group in groups:
@@ -156,7 +156,7 @@ def save_items():
             'store': store,
             'date': date,
             'price': item.get('price', 0),
-            'userID': user["id"],
+            'user_id': user["id"],
             'bank_account_id': bank_account_id,
             'type': 'expense',
             'receipt_image': receipt_image,
@@ -169,7 +169,7 @@ def save_items():
         for split in splits:
             split_model.create({
                 'receipt_group_id': receipt_group_id,
-                'userID': split["id"],
+                'user_id': split["id"],
                 'amount': split['amount'],
                 'percentage': split.get('percentage', 0)
             })
@@ -200,7 +200,7 @@ def manual_entry():
         'store': data.get('store', 'Unknown'),
         'date': data.get('date'),
         'price': data.get('price', 0),
-        'userID': user["id"],
+        'user_id': user["id"],
         'bank_account_id': data.get('bank_account_id', ''),
         'type': data.get('type', 'expense'),
         'receipt_image': '',
@@ -214,7 +214,7 @@ def manual_entry():
         for split in splits:
             split_model.create({
                 'receipt_group_id': receipt_group_id,
-                'userID': split["personId"],
+                'user_id': split['user_id'],
                 'amount': split['amount'],
                 'percentage': split.get('percentage', 0)
             })

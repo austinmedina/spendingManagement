@@ -99,7 +99,7 @@
             </div>
             <div class="modal-body">
                 <form id="userForm">
-                    <input type="hidden" id="userId">
+                    <input type="hidden" id="user_id">
                     <div class="mb-3">
                         <label class="form-label">Username <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="username" required>
@@ -209,7 +209,7 @@ async function loadGroupsAdmin() {
 
 function editUser(user) {
     document.getElementById('userModalTitle').textContent = 'Edit User';
-    document.getElementById('userId').value = user.id;
+    document.getElementById('user_id').value = user.id;
     document.getElementById('username').value = user.username;
     document.getElementById('fullName').value = user.full_name;
     document.getElementById('email').value = user.email || '';
@@ -227,7 +227,7 @@ async function deleteUser(id) {
 }
 
 document.getElementById('saveUserBtn').addEventListener('click', async () => {
-    const id = document.getElementById('userId').value;
+    const id = document.getElementById('user_id').value;
     const data = {
         username: document.getElementById('username').value,
         full_name: document.getElementById('fullName').value,
@@ -256,7 +256,7 @@ document.getElementById('saveUserBtn').addEventListener('click', async () => {
 
 function resetUserForm() {
     document.getElementById('userForm').reset();
-    document.getElementById('userId').value = '';
+    document.getElementById('user_id').value = '';
     document.getElementById('userModalTitle').textContent = 'Create User';
     document.getElementById('pwdRequired').style.display = 'inline';
 }

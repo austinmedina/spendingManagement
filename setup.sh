@@ -28,19 +28,19 @@ touch utils/__init__.py
 echo "Initializing CSV files..."
 
 if [ ! -f "database.csv" ]; then
-    echo "id,item_name,category,store,date,price,person,bank_account_id,type,receipt_image,group_id,receipt_group_id" > database.csv
+    echo "id,item_name,category,store,date,price,user_id,bank_account_id,type,receipt_image,receipt_json,group_id,receipt_group_id" > database.csv
 fi
 
 if [ ! -f "budgets.csv" ]; then
-    echo "id,category,amount,period,start_date,person" > budgets.csv
+    echo "id,category,amount,period,start_date,user_id" > budgets.csv
 fi
 
 if [ ! -f "recurring.csv" ]; then
-    echo "id,item_name,category,store,price,person,bank_account_id,type,frequency,next_date,active,group_id" > recurring.csv
+    echo "id,item_name,category,store,price,user_id,bank_account_id,type,frequency,next_date,active,group_id" > recurring.csv
 fi
 
 if [ ! -f "accounts.csv" ]; then
-    echo "id,name,type,person" > accounts.csv
+    echo "id,name,type,user_id" > accounts.csv
 fi
 
 if [ ! -f "groups.csv" ]; then
@@ -48,11 +48,11 @@ if [ ! -f "groups.csv" ]; then
 fi
 
 if [ ! -f "splits.csv" ]; then
-    echo "id,receipt_group_id,person,amount,percentage" > splits.csv
+    echo "id,receipt_group_id,user_id,amount,percentage" > splits.csv
 fi
 
 if [ ! -f "notifications.csv" ]; then
-    echo "id,user,type,title,message,date,read,data" > notifications.csv
+    echo "id,user_id,type,title,message,date,read,data" > notifications.csv
 fi
 
 if [ ! -f "users.csv" ]; then
@@ -60,7 +60,7 @@ if [ ! -f "users.csv" ]; then
 fi
 
 if [ ! -f "reset_codes.csv" ]; then
-    echo "code,username,expires,used" > reset_codes.csv
+    echo "code,user_id,expires,used" > reset_codes.csv
 fi
 
 # Create .env file if it doesn't exist
