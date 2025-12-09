@@ -76,7 +76,7 @@
 
 {% block extra_js %}
 <script>
-let groupModal, currentMembers = [];
+let groupModal, currentMembers = {};
 
 async function loadGroups() {
     const groups = await fetch('/api/groups').then(r => r.json());
@@ -86,6 +86,8 @@ async function loadGroups() {
         container.innerHTML = '<p class="text-muted text-center py-4">No groups yet. Create a group to start sharing expenses.</p>';
         return;
     }
+
+    console.log(groups);
     
     container.innerHTML = groups.map(g => {
         const members = g.names
@@ -113,13 +115,11 @@ function editGroup(group) {
     document.getElementById('groupModalTitle').textContent = 'Edit Group';
     document.getElementById('groupId').value = group.id;
     document.getElementById('groupName').value = group.name;
-    console.log(group)
-    console.log('{{ current_person }}')
+    // Reset currentMembers then populate from group data
+    currentMembers = {};
     for (let i = 0; i < group.members.length; i++) {
-        if (group.members[i].name === '{{ current_person.name }}') continue;
-        currentMembers.push();
+        currentMembers[group.members[i]] = group.names[i];
     }
-    console.log(currentMembers)
     renderMembers();
     groupModal.show();
 }
@@ -132,29 +132,31 @@ async function deleteGroup(id) {
 
 function renderMembers() {
     const container = document.getElementById('membersList');
-    if (!currentMembers.length) {
+    if (!Object.keys(currentMembers).length) {
         container.innerHTML = '<p class="text-muted small mb-0">No additional members yet</p>';
         return;
     }
-    container.innerHTML = currentMembers.map((m, i) => `
+    container.innerHTML = Object.keys(currentMembers).map((m, i) => `
         <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
-            <span>${m.name}</span>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeMember(${i})"><i class="bi bi-x"></i></button>
+            <span>${currentMembers[m]}</span>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeMember('${m}')"><i class="bi bi-x"></i></button>
         </div>
     `).join('');
 }
 
 function removeMember(index) {
-    currentMembers.splice(index, 1);
+    if (index != "{{ current_person.id }}") {
+        delete currentMembers[index];
+    }
     renderMembers();
 }
 
 document.getElementById('addMemberBtn').addEventListener('click', () => {
     const input = document.getElementById('newMemberId');
     const id = input.value.trim();
-    console.log(input)
-    if (id && !currentMembers.includes(id)) {
-        currentMembers.push(id);
+    const name = input.options[input.selectedIndex].text;
+    if (id && !currentMembers.hasOwnProperty(id)) {
+        currentMembers[id] = name;
         renderMembers();
         input.value = '';
     }
@@ -167,11 +169,11 @@ document.getElementById('saveGroupBtn').addEventListener('click', async () => {
     const name = document.getElementById('groupName').value.trim();
     
     if (!name) { alert('Enter group name'); return; }
-    if (currentMembers.length === 0) { alert('Add at least one member'); return; }
+    if (Object.keys(currentMembers).length < 2) { alert('Add at least one member besides yourself'); return; }
     
     const data = {
         name: name,
-        members: currentMembers
+        members: Object.keys(currentMembers)
     };
     
     if (id) {
@@ -188,10 +190,15 @@ document.getElementById('saveGroupBtn').addEventListener('click', async () => {
 function resetGroupForm() {
     document.getElementById('groupForm').reset();
     document.getElementById('groupId').value = '';
-    currentMembers = [];
+    currentMembers = {};
     renderMembers();
     document.getElementById('groupModalTitle').textContent = 'Create Group';
 }
+
+document.getElementById('groupModal').addEventListener('show.bs.modal', function () {
+    currentMembers["{{ current_person.id }}"] = "{{ current_person.full_name }}";
+    renderMembers();
+});
 
 document.getElementById('groupModal').addEventListener('hidden.bs.modal', resetGroupForm);
 

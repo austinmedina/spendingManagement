@@ -40,8 +40,8 @@ class Config:
     
     # Notifications
     ENABLE_EMAIL_NOTIFICATIONS = os.getenv('ENABLE_EMAIL_NOTIFICATIONS', 'false').lower() == 'true'
-    BUDGET_WARNING_THRESHOLD = float(os.getenv('BUDGET_WARNING_THRESHOLD', '0.75'))  # 75%
-    BUDGET_CRITICAL_THRESHOLD = float(os.getenv('BUDGET_CRITICAL_THRESHOLD', '0.90'))  # 90%
+    BUDGET_WARNING_THRESHOLD = float(os.getenv('BUDGET_WARNING_THRESHOLD', 0.75))  # 75%
+    BUDGET_CRITICAL_THRESHOLD = float(os.getenv('BUDGET_CRITICAL_THRESHOLD', 0.90))  # 90%
     
     # Recurring Transaction Processing
     RECURRING_CHECK_HOUR = int(os.getenv('RECURRING_CHECK_HOUR', '6'))  # 6 AM
@@ -71,7 +71,7 @@ class Config:
     CSV_HEADERS = {
         'transactions': ['id', 'item_name', 'category', 'store', 'date', 'price', 
                         'user_id', 'bank_account_id', 'type', 'receipt_image', 
-                        'group_id', 'receipt_group_id'],
+                        'receipt_json','group_id', 'receipt_group_id'],
         'budgets': ['id', 'category', 'amount', 'period', 'start_date', 'user_id'],
         'recurring': ['id', 'item_name', 'category', 'store', 'price', 'user_id', 
                      'bank_account_id', 'type', 'frequency', 'next_date', 'active', 'group_id'],

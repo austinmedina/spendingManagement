@@ -1,0 +1,87 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: receipt_tracker_db_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: receipt_tracker
+      POSTGRES_USER: receipt_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-devpassword123}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - receipt_network
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U receipt_user -d receipt_tracker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Development Flask Application with hot reload
+  app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: receipt_tracker_app_dev
+    restart: unless-stopped
+    environment:
+      # Database
+      USE_CSV: "false"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: receipt_tracker
+      DB_USER: receipt_user
+      DB_PASSWORD: ${DB_PASSWORD:-devpassword123}
+      
+      # Flask Development
+      FLASK_ENV: development
+      FLASK_DEBUG: "1"
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      
+      # Azure Document Intelligence (optional)
+      AZURE_DOC_INTELLIGENCE_ENDPOINT: ${AZURE_DOC_INTELLIGENCE_ENDPOINT:-}
+      AZURE_DOC_INTELLIGENCE_KEY: ${AZURE_DOC_INTELLIGENCE_KEY:-}
+      
+      # Email (optional)
+      SMTP_SERVER: ${SMTP_SERVER:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      
+      # Python
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      # Mount source code for hot reload
+      - ./:/workspace:cached
+      - /workspace/__pycache__
+      - receipt_images_dev:/workspace/receipts
+      - uploads_dev:/workspace/uploads
+    working_dir: /workspace
+    command: python app.py
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - receipt_network
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data_dev:
+    driver: local
+  receipt_images_dev:
+    driver: local
+  uploads_dev:
+    driver: local
+
+networks:
+  receipt_network:
+    driver: bridge

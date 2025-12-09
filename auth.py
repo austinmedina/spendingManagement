@@ -43,7 +43,17 @@ def init_users():
                 'email': 'admin@example.com',
                 'is_admin': 'true',
                 'active': 'true',
-                'must_change_password': 'true'
+                'must_change_password': 'false'
+            })
+            writer.writerow({
+                'id': '2',
+                'username': 'austinmedina',
+                'password_hash': hash_password('password'),
+                'full_name': 'Austin Medina',
+                'email': 'austin@example.com',
+                'is_admin': 'false',
+                'active': 'true',
+                'must_change_password': 'false'
             })
     
     # Initialize reset codes file

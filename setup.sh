@@ -27,40 +27,40 @@ touch utils/__init__.py
 # Create empty CSV files if they don't exist
 echo "Initializing CSV files..."
 
-if [ ! -f "database.csv" ]; then
-    echo "id,item_name,category,store,date,price,user_id,bank_account_id,type,receipt_image,receipt_json,group_id,receipt_group_id" > database.csv
+if [ ! -f "csv/database.csv" ]; then
+    echo "id,item_name,category,store,date,price,user_id,bank_account_id,type,receipt_image,receipt_json,group_id,receipt_group_id" > csv/database.csv
 fi
 
-if [ ! -f "budgets.csv" ]; then
-    echo "id,category,amount,period,start_date,user_id" > budgets.csv
+if [ ! -f "csv/budgets.csv" ]; then
+    echo "id,category,amount,period,start_date,user_id" > csv/budgets.csv
 fi
 
-if [ ! -f "recurring.csv" ]; then
-    echo "id,item_name,category,store,price,user_id,bank_account_id,type,frequency,next_date,active,group_id" > recurring.csv
+if [ ! -f "csv/recurring.csv" ]; then
+    echo "id,item_name,category,store,price,user_id,bank_account_id,type,frequency,next_date,active,group_id" > csv/recurring.csv
 fi
 
-if [ ! -f "accounts.csv" ]; then
-    echo "id,name,type,user_id" > accounts.csv
+if [ ! -f "csv/accounts.csv" ]; then
+    echo "id,name,type,user_id" > csv/accounts.csv
 fi
 
-if [ ! -f "groups.csv" ]; then
-    echo "id,name,members" > groups.csv
+if [ ! -f "csv/groups.csv" ]; then
+    echo "id,name,members" > csv/groups.csv
 fi
 
-if [ ! -f "splits.csv" ]; then
-    echo "id,receipt_group_id,user_id,amount,percentage" > splits.csv
+if [ ! -f "csv/splits.csv" ]; then
+    echo "id,receipt_group_id,user_id,amount,percentage" > csv/splits.csv
 fi
 
-if [ ! -f "notifications.csv" ]; then
-    echo "id,user_id,type,title,message,date,read,data" > notifications.csv
+if [ ! -f "csv/notifications.csv" ]; then
+    echo "id,user_id,type,title,message,date,read,data" > csv/notifications.csv
 fi
 
-if [ ! -f "users.csv" ]; then
-    echo "id,username,password_hash,full_name,email,is_admin,active,must_change_password" > users.csv
+if [ ! -f "csv/users.csv" ]; then
+    echo "id,username,password_hash,full_name,email,is_admin,active,must_change_password" > csv/users.csv
 fi
 
-if [ ! -f "reset_codes.csv" ]; then
-    echo "code,user_id,expires,used" > reset_codes.csv
+if [ ! -f "csv/reset_codes.csv" ]; then
+    echo "code,user_id,expires,used" > csv/reset_codes.csv
 fi
 
 # Create .env file if it doesn't exist

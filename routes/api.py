@@ -426,10 +426,13 @@ def get_groups():
     for group in groups:
         modifiedGroup = group
         names = []
+        ids = []
         for id in group["members"].split(','):
             names.append(get_user_by_id(id)["full_name"])
+            ids.append(id)
         
         modifiedGroup["names"] = names
+        modifiedGroup["members"] = ids
         groupMembers.append(modifiedGroup)
             
     return groupMembers
@@ -458,17 +461,8 @@ def create_group():
 def update_group(gid):
     """Update group"""
     data = request.json
-    user = get_current_user()
-    person = user["id"]
+    data['members'] = ",".join(data.get('members', []))
 
-    members = []
-    membersNames = data.get('members', [])
-    for name in membersNames:
-        members.append(get_user_by_full_name(name)["id"])
-    
-    if person not in members:
-        members.append(person)
-    data['members'] = ','.join(members)
 
     group_model = GroupModel()
     success = group_model.update_by_id(gid, data)

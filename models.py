@@ -108,6 +108,7 @@ class TransactionModel(CSVModel):
             'bank_account_id': data.get('bank_account_id', ''),
             'type': data.get('type', 'expense'),
             'receipt_image': data.get('receipt_image', ''),
+            'receipt_json': data.get('receipt_json', ''),
             'group_id': data.get('group_id', ''),
             'receipt_group_id': data.get('receipt_group_id', '')
         }
