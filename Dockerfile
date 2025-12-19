@@ -1,7 +1,7 @@
 FROM python:3.14-slim
 
 # Set working directory
-WORKDIR /workspace
+WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -10,41 +10,32 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     curl \
     git \
-    vim \
-    nano \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python development tools
-RUN pip install --no-cache-dir \
-    flask \
-    gunicorn \
-    werkzeug \
-    black \
-    flake8 \
-    pylint \
-    pytest \
-    ipython \
-    debugpy
+COPY requirements.txt .
 
-# Create non-root user with sudo access for development
-RUN useradd -m -u 1000 -s /bin/bash appuser && \
-    echo "appuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/appuser && \
-    chmod 0440 /etc/sudoers.d/appuser
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir gunicorn[gevent]
 
-# Create necessary directories
-RUN mkdir -p /workspace/receipts /workspace/uploads /workspace/static && \
-    chown -R appuser:appuser /workspace
+COPY . .
 
-# Switch to non-root user
+RUN useradd -m -u 1000 appuser \
+    && chown -R appuser:appuser /app
+
 USER appuser
 
+EXPOSE 5000
+
 # Set up Python path
-ENV PYTHONPATH=/workspace
+ENV PYTHONPATH=/app
 ENV PATH="/home/appuser/.local/bin:${PATH}"
 
 # Expose port
 EXPOSE 5000
 
-# Keep container running for devcontainer
-CMD ["tail", "-f", "/dev/null"]
+ENV FLASK_APP=app.py
+ENV FLASK_ENV=development
+ENV PYTHONUNBUFFERED=1
+
+CMD ["flask", "run", "--host=0.0.0.0", "--reload"]
